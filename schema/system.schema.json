@@ -1,0 +1,264 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "genesis/system.schema.json",
+  "title": "genesis save (schema 4)",
+  "description": "genesis 存档：一次创世的参数与由此决定的恒星系。字段语义与单位见 docs/JSON_FORMAT.md。",
+  "type": "object",
+  "required": ["schema", "createdAt", "spec", "system"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": 4 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "spec": { "$ref": "#/$defs/spec" },
+    "system": { "$ref": "#/$defs/system" }
+  },
+  "$defs": {
+    "spec": {
+      "type": "object",
+      "required": ["seed", "starMass", "planetCount", "maxMoons"],
+      "additionalProperties": false,
+      "properties": {
+        "seed": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "starMass": { "type": "number", "minimum": 0.15, "maximum": 2.0 },
+        "planetCount": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "maxMoons": { "type": "integer", "minimum": 0, "maximum": 4 }
+      }
+    },
+    "star": {
+      "type": "object",
+      "required": ["massSun", "luminositySun", "radiusSun", "teffK", "spectralClass", "lifetimeGyr", "hzInnerAU", "hzOuterAU"],
+      "additionalProperties": false,
+      "properties": {
+        "massSun": { "type": "number", "exclusiveMinimum": 0 },
+        "luminositySun": { "type": "number", "exclusiveMinimum": 0 },
+        "radiusSun": { "type": "number", "exclusiveMinimum": 0 },
+        "teffK": { "type": "number", "exclusiveMinimum": 0 },
+        "spectralClass": { "type": "string", "enum": ["M", "K", "G", "F", "A"] },
+        "lifetimeGyr": { "type": "number", "exclusiveMinimum": 0 },
+        "hzInnerAU": { "type": "number", "exclusiveMinimum": 0 },
+        "hzOuterAU": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "biomeStat": {
+      "type": "object",
+      "required": ["id", "label", "count", "fraction"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "label": { "type": "string", "minLength": 1 },
+        "count": { "type": "integer", "minimum": 0 },
+        "fraction": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "required": ["lon", "lat"],
+      "additionalProperties": false,
+      "properties": {
+        "lon": { "const": 72 },
+        "lat": { "const": 36 }
+      }
+    },
+    "terrestrialSurface": {
+      "type": "object",
+      "required": [
+        "model", "kind", "grid", "seaLevelM", "oceanFraction", "landFraction",
+        "minElevationM", "maxElevationM", "meanTempC", "biomes", "elevationM", "biome",
+        "wetness", "fertility"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "model": { "const": "coarse-grid-v1" },
+        "kind": { "const": "terrestrial" },
+        "grid": { "$ref": "#/$defs/grid" },
+        "seaLevelM": { "type": "number" },
+        "oceanFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "landFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minElevationM": { "type": "number" },
+        "maxElevationM": { "type": "number" },
+        "meanTempC": { "type": "number" },
+        "biomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/biomeStat" }
+        },
+        "elevationM": {
+          "type": "array",
+          "minItems": 36,
+          "maxItems": 36,
+          "items": {
+            "type": "array",
+            "minItems": 72,
+            "maxItems": 72,
+            "items": { "type": "number" }
+          }
+        },
+        "biome": {
+          "type": "array",
+          "minItems": 36,
+          "maxItems": 36,
+          "items": {
+            "type": "array",
+            "minItems": 72,
+            "maxItems": 72,
+            "items": { "type": "integer", "minimum": 0, "maximum": 10 }
+          }
+        },
+        "wetness": {
+          "type": "array",
+          "minItems": 36,
+          "maxItems": 36,
+          "items": {
+            "type": "array",
+            "minItems": 72,
+            "maxItems": 72,
+            "items": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "fertility": {
+          "type": "array",
+          "minItems": 36,
+          "maxItems": 36,
+          "items": {
+            "type": "array",
+            "minItems": 72,
+            "maxItems": 72,
+            "items": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "isobaricSurface": {
+      "type": "object",
+      "required": [
+        "model", "kind", "grid", "pressureBar", "minWindMps", "maxWindMps", "meanTempC", "biomes", "biome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "model": { "const": "coarse-grid-v1" },
+        "kind": { "const": "isobaric" },
+        "grid": { "$ref": "#/$defs/grid" },
+        "pressureBar": { "type": "number", "exclusiveMinimum": 0 },
+        "minWindMps": { "type": "number", "minimum": 0 },
+        "maxWindMps": { "type": "number", "minimum": 0 },
+        "meanTempC": { "type": "number" },
+        "biomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/biomeStat" }
+        },
+        "biome": {
+          "type": "array",
+          "minItems": 36,
+          "maxItems": 36,
+          "items": {
+            "type": "array",
+            "minItems": 72,
+            "maxItems": 72,
+            "items": { "type": "integer", "minimum": 12, "maximum": 16 }
+          }
+        }
+      }
+    },
+    "moonSurface": {
+      "type": "object",
+      "required": ["model", "kind", "grid", "meanTempC", "biomes", "biome"],
+      "additionalProperties": false,
+      "properties": {
+        "model": { "const": "coarse-grid-v1" },
+        "kind": { "const": "moon" },
+        "grid": { "$ref": "#/$defs/grid" },
+        "meanTempC": { "type": "number" },
+        "biomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/biomeStat" }
+        },
+        "biome": {
+          "type": "array",
+          "minItems": 36,
+          "maxItems": 36,
+          "items": {
+            "type": "array",
+            "minItems": 72,
+            "maxItems": 72,
+            "items": { "const": 11 }
+          }
+        }
+      }
+    },
+    "moon": {
+      "type": "object",
+      "required": ["id", "name", "massEarth", "radiusEarth", "orbitKm", "periodDays", "tideMeters", "surface"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "massEarth": { "type": "number", "exclusiveMinimum": 0 },
+        "radiusEarth": { "type": "number", "exclusiveMinimum": 0 },
+        "orbitKm": { "type": "number", "exclusiveMinimum": 0 },
+        "periodDays": { "type": "number", "exclusiveMinimum": 0 },
+        "tideMeters": { "type": "number", "minimum": 0 },
+        "surface": { "$ref": "#/$defs/moonSurface" }
+      }
+    },
+    "planet": {
+      "type": "object",
+      "required": [
+        "id", "name", "kind", "aAU", "periodDays", "eccentricity", "inclinationDeg",
+        "massEarth", "radiusEarth", "densityGcc", "gravity", "escapeKms", "rotationHours",
+        "tidallyLocked", "obliquityDeg", "albedo", "eqTempK", "meanTempK",
+        "climate", "atmosphere", "habitable", "moons", "surface"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["rocky", "ice", "gas"] },
+        "aAU": { "type": "number", "exclusiveMinimum": 0 },
+        "periodDays": { "type": "number", "exclusiveMinimum": 0 },
+        "eccentricity": { "type": "number", "minimum": 0, "maximum": 0.9 },
+        "inclinationDeg": { "type": "number", "minimum": 0, "maximum": 90 },
+        "massEarth": { "type": "number", "exclusiveMinimum": 0 },
+        "radiusEarth": { "type": "number", "exclusiveMinimum": 0 },
+        "densityGcc": { "type": "number", "exclusiveMinimum": 0 },
+        "gravity": { "type": "number", "exclusiveMinimum": 0 },
+        "escapeKms": { "type": "number", "exclusiveMinimum": 0 },
+        "rotationHours": { "type": "number", "exclusiveMinimum": 0 },
+        "tidallyLocked": { "type": "boolean" },
+        "obliquityDeg": { "type": "number", "minimum": 0, "maximum": 90 },
+        "albedo": { "type": "number", "minimum": 0, "maximum": 1 },
+        "eqTempK": { "type": "number", "exclusiveMinimum": 0 },
+        "meanTempK": { "type": "number", "exclusiveMinimum": 0 },
+        "climate": { "type": "string", "enum": ["frozen", "cold", "temperate", "hot", "scorched"] },
+        "atmosphere": { "type": "string", "enum": ["none", "thin", "thick", "hydrogen"] },
+        "habitable": { "type": "boolean" },
+        "moons": { "type": "array", "items": { "$ref": "#/$defs/moon" }, "maxItems": 4 },
+        "surface": {
+          "oneOf": [
+            { "$ref": "#/$defs/terrestrialSurface" },
+            { "$ref": "#/$defs/isobaricSurface" }
+          ]
+        }
+      }
+    },
+    "system": {
+      "type": "object",
+      "required": ["spec", "specHash", "generator", "star", "planets"],
+      "additionalProperties": false,
+      "properties": {
+        "spec": { "$ref": "#/$defs/spec" },
+        "specHash": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+        "generator": { "type": "string", "minLength": 1 },
+        "star": { "$ref": "#/$defs/star" },
+        "planets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/planet" }
+        }
+      }
+    }
+  }
+}
+
