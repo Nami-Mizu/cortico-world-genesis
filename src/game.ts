@@ -117,12 +117,16 @@ import {
   premiumGenes,
   RESOURCE_LABELS,
   SPECIES,
+  SPECIES_IDS,
+  nutrientFactor,
   seedId,
+  type ClimateSample,
   type Genes,
   type PlantRecord,
   type ResourceId,
   type SpeciesId,
 } from './flora.ts';
+import { advanceAnimals, seedAnimals, territoryFor, viewableCatsNear, TROUGH_CAPACITY_KG, type Animal, type Territory } from './animal.ts';
 import {
   climateAt,
   endowmentFor,
@@ -174,6 +178,7 @@ import {
   sparkPlugOutputKj,
   TELESCOPE_LEVELS,
   TELESCOPE_MAX_LEVEL,
+  fertilizerPriceKj,
   telescopeLevel,
   telescopeLimitFactor,
   SUBAGENT_LEVELS,
@@ -253,6 +258,30 @@ export interface GameState {
   epochRealMs: number;
   /** 1 星球时 = 多少现实毫秒（= 自转周期 / 24，可按时间加速）。 */
   msPerPlanetHour: number;
+  /** 时间倍速（1–200）：只影响「现实时间 → 母星时」的换算，不改历法。 */
+  speed?: number;
+  /** 本局特许执照：旅游星系或技术星系。选后不可改。 */
+  charter?: 'tourism' | 'tech';
+  /** 知名度（0–100，只有旅游线用）。 */
+  reputation?: number;
+  /** 计算力存量（只有科技线用）。 */
+  compute?: number;
+  /** 昨天来过多少游客（面板显示用）。 */
+  visitorsYesterday?: number;
+  /** 员工数（外星雇员，吃工资）。 */
+  staff?: number;
+  /** 上一次结算特许经济（母星时）。 */
+  lastCharterHomeHours?: number;
+  /** 上一次发工资的日号。 */
+  lastPayrollDay?: number;
+  /** 上一次特许提醒的日号。 */
+  lastCharterWarnDay?: number;
+  /** 员工流失按天结算，避免一次清零。 */
+  lastAttritionDay?: number;
+  /** 唯一的奇观工程（一次只能建一座）。 */
+  wonder?: { id: string; progress: number; lastHomeHours: number; stagnantHomeHours: number } | null;
+  /** 已经建成的奇观 id。 */
+  wonders?: string[];
   location: Location | null;
   transit: Transit | null;
   stargaze: StargazeRecord | null;
@@ -284,6 +313,12 @@ export interface GameState {
   /** 上次结算「疤往下游扩散」的时刻（母星时）。 */
   lastScarHomeHours: number;
   lastIndustryHomeHours?: number;
+  lastIceHomeHours?: number;
+  /** 野生个体（3.0.0）。 */
+  animals?: Animal[];
+  lastAnimalHomeHours?: number;
+  /** 每颗行星、每种初级消费者最多一块领地（3.1.0）。 */
+  territories?: Territory[];
   /** 交易终端上次自动交易的那一天（母星日序号），保证一天只跑一次。 */
   lastAutoTradeDay: number;
   /** 上次结算机械臂的时刻（母星时）。 */
@@ -314,6 +349,8 @@ export interface GameState {
   seedBags: SeedBag[];
   /** 累计买过多少袋随机种子（阶梯价用）。 */
   seedsPurchased: number;
+  /** 已经从商人那里买过多少公斤复合肥（阶梯价依据，旧档缺省 0）。 */
+  fertilizerBought?: number;
   /** 当天已卖/已买：`day:sell:biomass` 之类 → 数量。 */
   daily: { day: number; sold: Record<string, number>; bought: Record<string, number> };
   /** 站点 key → 上次采样是第几天（一天一次）。 */
@@ -418,7 +455,20 @@ export interface StructureRecord {
     | 'wind'
     | 'fire'
     | 'converter'
-    | 'duty';
+  | 'tourism_dock'
+  | 'visitor_lodge'
+  | 'recruit_office'
+  | 'staff_housing'
+  | 'fab'
+  | 'tour_line'
+  | 'souvenir'
+  | 'compute_array'
+  | 'heavy_water'
+  | 'enrichment'
+    | 'duty'
+  | 'fence'
+  | 'scarecrow'
+  | 'feed_trough';
   siteKey: string;
   planetIndex: number;
   builtHomeHours: number;
@@ -527,6 +577,18 @@ export interface GameEvent {
   text: string;
 }
 
+/** 【再创世】带走的档案（见 profile.ts）：人回休眠舱，其余原样带过来。 */
+export interface CarryOver {
+  credits: number;
+  tungsten: number;
+  energyKj: number;
+  inventory: Record<string, number>;
+  upgrades: Upgrades;
+  seedBags: SeedBag[];
+  people: number;
+  samples: number;
+}
+
 export interface StartOptions {
   /** 恒星名（开局时定，存档沿用）。 */
   starName: string;
@@ -536,6 +598,8 @@ export interface StartOptions {
   timeScale?: number;
   /** 创世种子：只用来决定初始应急种子包的基因（同一个世界永远一样）。 */
   seed?: number | string;
+  /** 【再创世】带来的档案；不传就是全新一局。 */
+  carry?: CarryOver;
 }
 
 /**
@@ -564,13 +628,31 @@ export function homeKey(state: GameState): string {
   return `p${state.homePlanetIndex}`;
 }
 
+/**
+ * 商人今天卖的是哪一种随机种子。
+ * 按「日号 + 已买袋数」哈希：同一天固定、第二天换一批，不是永远速生草。
+ */
+export function dailyShopSpecies(state: GameState, nowMs: number): SpeciesId {
+  const day = dayIndexOf(nowPlanetHours(state, nowMs));
+  return SPECIES_IDS[hashSeed(`shopseed:${day}:${state.seedsPurchased}`) % SPECIES_IDS.length]!;
+}
+
 export function msPerPlanetHourFor(cal: HomeCalendar): number {
   return cal.realHoursPerPlanetHour * REAL_MS_PER_HOUR;
 }
 
 /** 现在（现实毫秒）对应的「自创世起的星球时」。 */
+export function realMsPerHomeHour(state: GameState): number {
+  return state.msPerPlanetHour / (state.speed ?? DEFAULT_SPEED);
+}
+
+/** 当前倍速下，一个母星时花多少现实分钟（时间显示用，别在别处硬算）。 */
+export function minutesPerHomeHour(state: GameState): number {
+  return realMsPerHomeHour(state) / 60_000;
+}
+
 export function nowPlanetHours(state: GameState, nowMs: number): number {
-  return Math.max(0, (nowMs - state.epochRealMs) / state.msPerPlanetHour);
+  return Math.max(0, ((nowMs - state.epochRealMs) * (state.speed ?? DEFAULT_SPEED)) / state.msPerPlanetHour);
 }
 
 export function timeText(state: GameState, nowMs: number): string {
@@ -621,11 +703,18 @@ export function startGame(system: StarSystem, opts: StartOptions, nowMs: number)
   const cal = calendarFor(home, opts.homeName);
   const scale = opts.timeScale && opts.timeScale > 0 ? opts.timeScale : 1;
   const spawn = spawnOnLand(home);
-  return {
+  const fresh: GameState = {
     calendar: cal,
     homePlanetIndex,
     epochRealMs: nowMs,
     msPerPlanetHour: msPerPlanetHourFor(cal) / scale,
+    speed: DEFAULT_SPEED,
+    reputation: 0,
+    compute: 0,
+    visitorsYesterday: 0,
+    staff: 0,
+    lastCharterHomeHours: 0,
+    lastPayrollDay: -1,
     location: { planetIndex: homePlanetIndex, ...spawn },
     transit: null,
     stargaze: null,
@@ -644,13 +733,17 @@ export function startGame(system: StarSystem, opts: StartOptions, nowMs: number)
     scar: {},
     lastScarHomeHours: 0,
     lastIndustryHomeHours: 0,
+    lastIceHomeHours: 0,
+    animals: seedAnimals(system, { animals: [] }, homePlanetIndex, opts.seed),
+    lastAnimalHomeHours: 0,
+    territories: [],
     lastAutoTradeDay: -1,
     lastArmsHomeHours: 0,
     lastCycleWarnDay: -1,
     lastGeneratorRealMs: nowMs - GENERATOR_COOLDOWN_MS,
     activeMs: nowMs,
     credits: 0,
-    inventory: { biomass: 0 },
+    inventory: { biomass: 0, deuterium: 0 },
     stores: { [SHIP_POD_ID]: { ...POD_STOCK } },
     sites: [],
     plants: {},
@@ -673,6 +766,7 @@ export function startGame(system: StarSystem, opts: StartOptions, nowMs: number)
     lastSpectrometerHomeHours: -SPECTROMETER_COOLDOWN_HOME_HOURS,
     seedBags: starterBags(opts.seed),
     seedsPurchased: 0,
+    fertilizerBought: 0,
     daily: { day: 0, sold: {}, bought: {} },
     surveyed: {},
     siteStores: {},
@@ -683,6 +777,34 @@ export function startGame(system: StarSystem, opts: StartOptions, nowMs: number)
     sleepers: SHIP_CREW,
     birthHours: 0,
     lastLaborHomeHours: 0,
+  };
+  return opts.carry ? applyCarry(fresh, opts.carry) : fresh;
+}
+
+function applyCarry(state: GameState, carry: CarryOver): GameState {
+  const bags = carry.seedBags.length > 0
+    ? carry.seedBags.map((bag) => {
+        const copy = { ...bag };
+        delete copy.at;
+        return copy;
+      })
+    : state.seedBags;
+  return {
+    ...state,
+    energyKj: carry.energyKj,
+    credits: carry.credits,
+    tungsten: carry.tungsten,
+    inventory: {
+      ...carry.inventory,
+      biomass: carry.inventory.biomass ?? state.inventory.biomass,
+      deuterium: carry.inventory.deuterium ?? 0,
+    },
+    upgrades: { ...state.upgrades, ...carry.upgrades },
+    seedBags: bags,
+    samples: carry.samples,
+    sleepers: carry.people,
+    awakened: false,
+    birthHours: 0,
   };
 }
 
@@ -775,14 +897,32 @@ export function tick(system: StarSystem, state: GameState, nowMs: number): { sta
   const traded = advanceTerminals(system, scarred, nowMs);
   const terrafied = advanceTerra(system, traded, nowMs);
   const industrious = advanceIndustry(system, terrafied.state, nowMs);
-  const grown = advanceFlora(system, industrious.state, nowMs);
-  const lived = advanceLife(system, grown.state, nowMs);
+  const chartered = advanceCharter(system, industrious.state, nowMs);
+  const wondered = advanceWonder(chartered.state, nowMs);
+  const frozen = advanceIce(system, wondered.state, nowMs);
+  const grown = advanceFlora(system, frozen.state, nowMs);
+  const grazedAt = nowPlanetHours(grown.state, nowMs);
+  const grazed = advanceAnimals(system, grown.state, grazedAt, (id) => {
+    const structure = grown.state.structures.find((entry) => entry.id === id);
+    return structure ? structurePowered(grown.state, structure) : false;
+  });
+  const grazedState = {
+    ...grown.state,
+    animals: grazed.animals,
+    plants: grazed.plants,
+    stores: grazed.stores,
+    lastAnimalHomeHours: grazedAt,
+  };
+  const lived = advanceLife(system, grazedState, nowMs);
   const labored = advanceLabor(system, lived.state, nowMs);
   const built = settleBuilds(system, labored.state, nowMs);
   const events: GameEvent[] = [
     ...armed.events,
+    ...grazed.events,
     ...terrafied.events,
     ...industrious.events,
+    ...chartered.events,
+    ...wondered.events,
     ...grown.events,
     ...lived.events,
     ...labored.events,
@@ -806,6 +946,14 @@ export function tick(system: StarSystem, state: GameState, nowMs: number): { sta
   }
   const key = bodyKeyOf(t.to);
   if (!next.visited.includes(key)) next.visited = [...next.visited, key];
+  // 第一次落到某颗行星：按名字 + 序号确定性撒一次野生动物（3.0.0）。
+  if (t.kind === 'interstellar') {
+    const seen = (next.animals ?? []).some((animal) => animal.planetIndex === t.to.planetIndex);
+    if (!seen) {
+      const seeded = seedAnimals(system, next, t.to.planetIndex, `animals:${state.names.star}`);
+      next.animals = seeded;
+    }
+  }
   const arriveAt = nowPlanetHours(settled, t.arriveRealMs);
   const used = arriveAt - nowPlanetHours(settled, t.departRealMs);
   const how =
@@ -853,7 +1001,7 @@ export function beginSurfaceMove(
     from: state.location,
     to,
     departRealMs: nowMs,
-    arriveRealMs: nowMs + hours * state.msPerPlanetHour,
+    arriveRealMs: nowMs + hours * realMsPerHomeHour(state),
     distanceKm,
   };
   return {
@@ -892,7 +1040,7 @@ export function stargazeAt(system: StarSystem, state: GameState, nowMs: number):
       ...state,
       stargaze: {
         atRealMs: nowMs,
-        untilRealMs: nowMs + STARGAZE_WINDOW_PLANET_HOURS * state.msPerPlanetHour,
+        untilRealMs: nowMs + STARGAZE_WINDOW_PLANET_HOURS * realMsPerHomeHour(state),
         visibleKeys: result.bodies.map((b) => b.key),
       },
     },
@@ -982,7 +1130,7 @@ export function beginInterstellar(
     from: state.location,
     to,
     departRealMs: nowMs,
-    arriveRealMs: nowMs + hours * state.msPerPlanetHour,
+    arriveRealMs: nowMs + hours * realMsPerHomeHour(state),
     distanceAU: dist,
   };
   return {
@@ -1495,7 +1643,7 @@ export function assertArmWiring(
   const containerAt = (id: string): StructureRecord => {
     const c = state.structures.find((s) => s.id === id);
     if (!c) throw new Error(`没有这个容器：${id}`);
-    if (!(STORAGE_KINDS as readonly string[]).includes(c.kind) && c.kind !== 'terminal') {
+    if (!(STORAGE_KINDS as readonly string[]).includes(c.kind) && c.kind !== 'terminal' && c.kind !== 'feed_trough') {
       throw new Error(`${id} 不是容器：机械臂只搬仓库、冷库、惰性气体室或交易终端缓冲里的散货。`);
     }
     if (c.planetIndex !== site.planetIndex) throw new Error(`机械臂够不到 ${c.planetIndex} 号星上的 ${id}：它只在 ${site.planetIndex} 号星上工作。`);
@@ -1582,7 +1730,7 @@ export function assertDutyWiring(
     ?? state.builds.find((b) => b.kind === 'duty' && b.habitat === habitat.id && b.id !== selfId);
   if (clash) throw new Error('这座居所已经有值班终端了：一座居所派一个班组，想加人先建新居所。');
   const store = state.structures.find((s) => s.id === storeId);
-  if (!store || !(STORAGE_KINDS as readonly string[]).includes(store.kind)) {
+  if (!store || (!(STORAGE_KINDS as readonly string[]).includes(store.kind) && store.kind !== 'feed_trough')) {
     throw new Error(`${storeId ?? '(没传)'} 不是仓库存放点：值班终端的收成和种子都走仓库、冷库或惰性气体室（交易终端那个收货口不行）。`);
   }
   if (store.planetIndex !== site.planetIndex) throw new Error('值班终端只能往同一颗行星上的仓库存东西。');
@@ -1758,7 +1906,7 @@ export function pressGenerator(state: GameState, nowMs: number): GameState {
 /** 时间真的过了一点（部署设备要 0.1 母星时）：把创世时刻往前推，显示的时间就往后跳。 */
 export function advanceHomeHours(state: GameState, homeHours: number): GameState {
   if (!(homeHours > 0)) return state;
-  return { ...state, epochRealMs: state.epochRealMs - homeHours * state.msPerPlanetHour };
+  return { ...state, epochRealMs: state.epochRealMs - homeHours * realMsPerHomeHour(state) };
 }
 
 function spendEnergy(state: GameState, costKj: number, what: string): GameState {
@@ -1881,7 +2029,6 @@ function landingPoint(planet: Planet, seed: number): { latDeg: number; lonDeg: n
 export const GREENHOUSE_COST_KJ = 80_000;
 export const GREENHOUSE_BUILD_HOME_HOURS = 0.1;
 export const GREENHOUSE_UPKEEP_KJ_PER_HOUR = 100;
-export const GREENHOUSE_RADIUS_KM = 1;
 export const BIOME_CHANGER_COST_KJ = 1_000_000;
 export const BIOME_CHANGER_BUILD_HOME_HOURS = 0.5;
 export const BIOME_CHANGER_UPKEEP_KJ_PER_HOUR = 0;
@@ -1948,6 +2095,7 @@ export function foundSite(system: StarSystem, state: GameState, latDeg: number, 
     kind: sample.wetness >= 0.5 ? 'water' : 'land',
     foundedHomeHours: nowPlanetHours(state, nowMs),
     nutrients: endowmentFor(surface, latDeg, lonDeg),
+    ...(sample.biome === 1 ? { waterL: 0 } : {}),
   };
   return {
     state: {
@@ -1994,9 +2142,11 @@ export function sowAt(
   }
   const planted = nowPlanetHours(state, nowMs);
   const next = [...current];
+  // id 按「这个站点里出现过的最大序号 + 1」往下排：拔掉几株之后不会和新苗撞号。
+  let seq = maxPlantSeq(current);
   for (let n = 0; n < want; n += 1) {
-    const id = `${siteKey}#${(state.plants[siteKey]?.length ?? 0) + n + 1}`;
-    next.push(newPlant(id, bag.species, bag.genes, planted));
+    seq += 1;
+    next.push(newPlant(`${siteKey}#${seq}`, bag.species, bag.genes, planted));
   }
   const bags = state.seedBags
     .map((b) => (b.id === bagId ? { ...b, count: b.count - want } : b))
@@ -2020,7 +2170,9 @@ export function harvestAt(system: StarSystem, state: GameState, siteKey: string,
       fertility = sampleCell(planet.surface, site.latDeg, site.lonDeg).fertility;
     }
   }
-  const result = harvestPlant(plant, fertility);
+  // 收成按养分因子打折：缺肥只减产，不会让苗死掉（见 flora.ts 的 advancePlant）。
+  const feed = site ? nutrientFactor(plant, { ...PLANTER_CLIMATE, nutrients: site.nutrients }) : 1;
+  const result = harvestPlant(plant, fertility, feed);
   const gained = round2(result.biomassKg + (result.resource === 'biomass' ? 0 : result.resourceKg));
   if (gained > 0) ensureInventoryRoom(state, gained);
   const nextList = result.plant ? list.map((p) => (p.id === plantId ? result.plant! : p)) : list.filter((p) => p.id !== plantId);
@@ -2091,7 +2243,17 @@ export function transplantAt(state: GameState, siteKey: string, plantId: string)
 }
 
 /** 拔掉一株死掉的作物（枯死、或应激到几乎没有生机）。活着的不能拔：收掉或移栽。 */
-export const REMOVE_MIN_HEALTH = 0.2;
+export const REMOVE_MIN_HEALTH = 20;
+
+/** 这个站点里出现过的最大株号（`<site>#12` → 12）；没编号的按 0 算。 */
+export function maxPlantSeq(list: PlantRecord[] | undefined): number {
+  let max = 0;
+  for (const plant of list ?? []) {
+    const match = /#(\d+)$/.exec(plant.id);
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return max;
+}
 
 export function removePlant(state: GameState, siteKey: string, plantId: string): { state: GameState; text: string } {
   if (state.transit) throw new Error('移动途中不能清理庄稼。');
@@ -2104,7 +2266,7 @@ export function removePlant(state: GameState, siteKey: string, plantId: string):
   const spec = SPECIES[plant.species];
   const dead = plant.stage === 'withering' || plant.health < REMOVE_MIN_HEALTH;
   if (!dead) {
-    throw new Error(`${spec.name}还活着（健康 ${Math.round(plant.health * 100)}%）——想处理它就收掉（如果结实）或者移栽（挖回种子），别直接拔。`);
+    throw new Error(`${spec.name}还活着（健康 ${plant.health.toFixed(1)}%）——想处理它就收掉（如果结实）或者移栽（挖回种子），别直接拔。`);
   }
   const nextList = list.filter((p) => p.id !== plantId);
   return {
@@ -2137,6 +2299,9 @@ export function breedAt(
   }
   if (plant.stage === 'withering' || plant.health <= 0) {
     throw new Error(`${spec.name}已经死了，留不了种。`);
+  }
+  if (plant.bred) {
+    throw new Error(`${spec.name}这株已经留过种了：一株一辈子只留一次——想要更多，把它种下去，再留下一代。`);
   }
   const ready = (p: PlantRecord): boolean => p.stage === 'ripe' || p.progress >= BREED_MIN_PROGRESS;
   if (!ready(plant)) {
@@ -2172,6 +2337,10 @@ export function breedAt(
   const stateOut: GameState = {
     ...next,
     seedBags: [...next.seedBags, bag],
+    plants: {
+      ...next.plants,
+      [siteKey]: list.map((p) => (p.id === plant.id ? { ...p, bred: true } : p)),
+    },
     lastFloraHomeHours: (next.lastFloraHomeHours ?? 0) + hours,
   };
   return {
@@ -2385,6 +2554,18 @@ export const CONVERTER_RECIPES: Record<string, { gas: string; liquid: string; la
 export const CANNED_AMMONIA_N = 0.1;
 export const CANNED_RETURN_FRACTION = 0.9;
 
+// 冰盖：站点自带一口 100 L 的冰窖，靠融雪慢慢攒水；水同时给作物当湿润度。
+export const ICE_CELLAR_L = 100;
+export const ICE_MELT_L_PER_HOUR = 0.2;
+export const ICE_IRRIGATION_L_PER_PLANT_HOUR = 0.02;
+export const ICE_WETNESS_BONUS_MAX = 0.5;
+export const ICE_WIND_MIN_KJ_PER_HOUR = 400;
+export const ICE_WIND_MAX_KJ_PER_HOUR = 900;
+
+// 创世时的「死局」门槛：可落脚陆地太少就不让迫降。
+export const LANDING_MIN_CELLS = 12;
+export const LANDING_MIN_WARM_CELLS = 3;
+
 
 /**
  * 【种植盆】：一只通电的小暖箱。不占地、不产堆场，只同时种 3 粒种子。
@@ -2410,6 +2591,78 @@ export const PLANTER_SUBSTRATE = { n: 0.36, p: 0.24, k: 0.28, trace: 0.12 } as c
  * 20 个人睡着时每小时只吃 20%，40 kg 粮 / 160 L 水 / 24 kg 氧大约够 400 / 400 / 171 母星时。
  * 醒着的人吃居所里的，睡着的人吃着陆舱里的——谁都不能白吃。
  */
+/* 特许执照：两条广播，各用对方的主货币买。 */
+export const CHARTER_TOURISM_CREDITS = 5_000;
+export const CHARTER_TECH_KJ = 300_000;
+/* 旅游 */
+export const TOURISM_DOCK_COST_KJ = 30_000;
+export const TOURISM_DOCK_TUNGSTEN = 2;
+export const TOURISM_DOCK_HOME_HOURS = 0.5;
+export const TOURISM_DOCK_KJ_PER_HOUR = 300;
+export const TOURISM_VISITORS_PER_DOCK = 10;
+export const VISITOR_KJ_PER_HOUR = 40;
+export const VISITOR_CREDITS = 12;
+export const REPUTATION_PER_VISITOR_CYCLE = 0.5;
+export const REPUTATION_PER_BLACKOUT_HOUR = 6;
+export const REPUTATION_DAILY_DECAY = 0.3;
+/* 科技 */
+/** 员工公寓与访客驿站的体感门槛：室内温度不在区间里，床位就不算数。 */
+export const STAFF_COMFORT_C = { min: 10, max: 30 } as const;
+export const LODGE_COMFORT_C = { min: 12, max: 26 } as const;
+/** 奇观【拟造S2机关】：吃计算力换能量。 */
+export const S2_ENGINE_MAX = 4;
+export const S2_COMPUTE_PER_HOUR = 2;
+export const S2_KJ_PER_COMPUTE = 20_000;
+export const VISITOR_LODGE_COST_KJ = 60_000;
+export const VISITOR_LODGE_TUNGSTEN = 4;
+export const VISITOR_LODGE_HOME_HOURS = 1;
+export const VISITOR_LODGE_KJ_PER_HOUR = 200;
+export const RECRUIT_COST_CREDITS = 40_000;
+export const RECRUIT_HOME_HOURS = 0.5;
+export const RECRUIT_KJ_PER_HOUR = 100;
+export const STAFF_PER_OFFICE_PER_DAY = 5;
+export const STAFF_WAGE_CREDITS_PER_DAY = 8;
+export const STAFF_HOUSING_COST_KJ = 20_000;
+export const STAFF_HOUSING_TUNGSTEN = 2;
+export const STAFF_HOUSING_HOME_HOURS = 0.5;
+export const STAFF_HOUSING_KJ_PER_HOUR = 150;
+export const STAFF_PER_HOUSING = 20;
+export const FAB_COST_KJ = 120_000;
+export const FAB_TUNGSTEN = 20;
+export const FAB_HOME_HOURS = 1.5;
+export const FAB_KJ_PER_HOUR = 2_000;
+export const FAB_COMPUTE_PER_HOUR = 1;
+export const FAB_STAFF_NEEDED = 2;
+export const TOUR_LINE_COST_KJ = 80_000;
+export const TOUR_LINE_TUNGSTEN = 6;
+export const TOUR_LINE_HOME_HOURS = 1;
+export const TOUR_LINE_KJ_PER_HOUR = 150;
+export const TOUR_LINE_CREDITS_BONUS = 0.5;
+export const SOUVENIR_COST_KJ = 40_000;
+export const SOUVENIR_TUNGSTEN = 3;
+export const SOUVENIR_HOME_HOURS = 0.5;
+export const SOUVENIR_KJ_PER_HOUR = 80;
+export const SOUVENIR_CREDITS_PER_VISITOR = 5;
+export const SOUVENIR_BIOMASS_PER_VISITOR = 0.05;
+export const COMPUTE_ARRAY_COST_KJ = 200_000;
+export const COMPUTE_ARRAY_TUNGSTEN = 15;
+export const COMPUTE_ARRAY_HOME_HOURS = 1;
+export const COMPUTE_ARRAY_KJ_PER_HOUR = 800;
+export const COMPUTE_ARRAY_MULTIPLIER = 1.15;
+export const COMPUTE_ARRAY_MAX_MULTIPLIER = 3;
+export const HEAVY_WATER_COST_KJ = 150_000;
+export const HEAVY_WATER_TUNGSTEN = 10;
+export const HEAVY_WATER_HOME_HOURS = 1;
+export const HEAVY_WATER_KJ_PER_HOUR = 400;
+export const ENRICHMENT_COMPUTE_PER_HOUR = 2;
+export const ENRICHMENT_KG_PER_HOUR = 0.5;
+export const WONDER_STALL_HOME_HOURS = 72;
+export const WONDER_DECAY_PER_DAY = 0.05;
+
+export const MIN_SPEED = 1;
+export const MAX_SPEED = 200;
+export const DEFAULT_SPEED = 1;
+
 export const SHIP_POD_ID = 'pod';
 export const POD_STOCK = { biomass: 40, water_drink: 160, oxygen: 24 } as const;
 /** 补给掉到初始量的这个比例以下，提醒一次。 */
@@ -3229,6 +3482,13 @@ export interface ShipSupplyStatus {
 }
 
 /** 着陆舱的补给和「还能撑多久」。没人在睡时 hoursLeft 为 null（不存在倒计时）。 */
+/** 着陆舱能装多少：干粮 kg、饮用水 L、氧气 kg。舱是容器，但只认这三样。 */
+export const POD_CAPACITY: Record<string, number> = {
+  biomass: POD_STOCK.biomass,
+  water_drink: POD_STOCK.water_drink,
+  oxygen: POD_STOCK.oxygen,
+};
+
 export function shipSupplyStatus(state: GameState): ShipSupplyStatus {
   const store = state.stores[SHIP_POD_ID] ?? {};
   const sleepers = sleepersOf(state);
@@ -3306,6 +3566,13 @@ function podTightestFraction(store: Record<string, number>): number {
   const planet = system.planets[site.planetIndex - 1]!;
   if (realSite) requireTerrestrial(planet);
   const spec = BUILD_SPECS[kind];
+  if (spec.charter && state.charter !== spec.charter) {
+    throw new Error(
+      spec.charter === 'tourism'
+        ? spec.label + '只在旅游星系有图纸：先去商人那儿买【星际广播 · 旅游星系】（5,000 信用点）。'
+        : spec.label + '只在技术星系有图纸：先去商人那儿买【星际广播 · 技术星系】（300,000 kJ）。',
+    );
+  }
   if (!spec) {
     // 兜底：别让 面板/工具 传错 id 时抛 TypeError，给人一句能看懂的。
     throw new Error(`不认识的建筑：${String(kind) || '(空)'}。`);
@@ -3394,7 +3661,7 @@ function podTightestFraction(store: Record<string, number>): number {
     const containerAt = (id: string) => {
       const c = state.structures.find((s) => s.id === id);
       if (!c) throw new Error(`没有这个容器：${id}`);
-      if (!(STORAGE_KINDS as readonly string[]).includes(c.kind) && c.kind !== 'terminal') {
+      if (!(STORAGE_KINDS as readonly string[]).includes(c.kind) && c.kind !== 'terminal' && c.kind !== 'feed_trough') {
         throw new Error(`${id} 不是容器：机械臂只搬仓库、冷库、惰性气体室或交易终端缓冲里的散货。`);
       }
       if (c.planetIndex !== site.planetIndex) throw new Error(`机械臂够不到 ${c.planetIndex} 号星上的 ${id}：它只在 ${site.planetIndex} 号星上工作。`);
@@ -3607,6 +3874,12 @@ export function settleBuilds(
       ...(b.sites !== undefined ? { sites: b.sites } : {}),
       ...(b.extractGas !== undefined ? { extractGas: b.extractGas } : {}),
       ...(b.recipes !== undefined ? { recipes: b.recipes } : {}),
+      ...(b.kind === 'fence' || b.kind === 'scarecrow' || b.kind === 'feed_trough'
+        ? (() => {
+            const site = state.sites.find((entry) => entry.key === b.siteKey);
+            return site ? { latDeg: site.latDeg, lonDeg: site.lonDeg } : {};
+          })()
+        : {}),
       ...(b.kind === 'carrier'
         ? { crew: 0, altitude: 0, latDeg: carrierBandOf(b.id).latDeg, lonDeg: carrierBandOf(b.id).lonDeg }
         : {}),
@@ -3622,6 +3895,7 @@ export function settleBuilds(
 
 /** 各种建筑的容量（仓库 1000 kg、冷库 200 kg、惰性气体室 120 kg、火箭 250 kg；其余不是容器）。 */
 export function storeCapacityKg(structure: StructureRecord, resource?: string): number {
+  if (structure.kind === 'feed_trough') return TROUGH_CAPACITY_KG;
   if (structure.kind === 'warehouse') return WAREHOUSE_CAPACITY_KG;
   if (structure.kind === 'cold_store') return COLD_STORE_CAPACITY_KG;
   if (structure.kind === 'inert_room') return INERT_ROOM_CAPACITY_KG;
@@ -4188,6 +4462,23 @@ export function depositTo(
       text: `把 ${kg} kg ${resource} 倒在 ${siteKey} 的堆场上。`,
     };
   }
+  // 着陆舱是容器（只认干粮/水/氧气），把背包里的补给倒进去。
+  if (structureId === SHIP_POD_ID) {
+    const cap = POD_CAPACITY[resource];
+    if (!cap) throw new Error('着陆舱只装干粮（biomass）、饮用水（water_drink）和氧气（oxygen）。');
+    const have = state.inventory[resource] ?? 0;
+    if (kg <= 0 || kg > have + 1e-9) throw new Error(`背包里没有那么多${resource}。`);
+    const store = { ...(state.stores[SHIP_POD_ID] ?? {}) };
+    const room = cap - (store[resource] ?? 0);
+    if (kg > room + 1e-9) throw new Error(`着陆舱装不下：${resource} 只剩 ${round3(Math.max(0, room))} 的余量（上限 ${cap}）。`);
+    const inventory = { ...state.inventory, [resource]: round3(have - kg) };
+    if (inventory[resource]! <= 1e-9) delete inventory[resource];
+    const nextStore = { ...store, [resource]: round3((store[resource] ?? 0) + kg) };
+    return {
+      state: { ...state, inventory, stores: { ...state.stores, [SHIP_POD_ID]: nextStore } },
+      text: `补进了着陆舱：${resource} 现在 ${round3(nextStore[resource] ?? 0)} / ${cap}。睡着的人会接着吃它。`,
+    };
+  }
   const structure = state.structures.find((s) => s.id === structureId);
   if (!structure) throw new Error(`没有这个建筑：${structureId}`);
   // 收货口不是储物格：它只接商人送来的货，玩家手动一律倒不进去。
@@ -4228,6 +4519,22 @@ export function withdrawFrom(
   resource: string,
   kg: number,
 ): { state: GameState; text: string } {
+  if (structureId === SHIP_POD_ID) {
+    const store = state.stores[SHIP_POD_ID] ?? {};
+    const have = store[resource] ?? 0;
+    if (kg <= 0 || kg > have + 1e-9) throw new Error(`着陆舱里没有那么多${resource}。`);
+    const weight = inventoryWeight(state);
+    if (weight + kg > INVENTORY_LIMIT_KG + 1e-9) {
+      throw new Error(`背包快满了：现在 ${round3(weight)} kg，上限 ${INVENTORY_LIMIT_KG} kg。`);
+    }
+    const nextStore = { ...store, [resource]: round3(have - kg) };
+    if (nextStore[resource]! <= 1e-9) delete nextStore[resource];
+    const inventory = { ...state.inventory, [resource]: round3((state.inventory[resource] ?? 0) + kg) };
+    return {
+      state: { ...state, inventory, stores: { ...state.stores, [SHIP_POD_ID]: nextStore } },
+      text: `从着陆舱取了 ${kg} kg ${resource}。`,
+    };
+  }
   const structure = state.structures.find((s) => s.id === structureId);
   if (!structure) throw new Error(`没有这个建筑：${structureId}`);
   const capacity = storeCapacityKg(structure);
@@ -4301,6 +4608,206 @@ export const MUTATION_ROOM_BUILD_HOME_HOURS = 0.5;
 export const MUTATION_MIN_SEEDS = 3;
 export const MUTATION_MAX_SEEDS = 5;
 
+
+/** 调时间倍速：重锚 epoch，保证「当前母星时」不跳。 */
+export function setSpeed(state: GameState, speed: number, nowMs: number): GameState {
+  const target = Math.round(speed);
+  if (!Number.isFinite(target) || target < MIN_SPEED || target > MAX_SPEED) {
+    throw new Error('倍速要在 ' + MIN_SPEED + '–' + MAX_SPEED + ' 之间：收到 ' + speed + '。');
+  }
+  const before = state.speed ?? DEFAULT_SPEED;
+  if (target === before) return state;
+  const elapsed = Math.max(0, nowMs - state.epochRealMs);
+  return { ...state, speed: target, epochRealMs: nowMs - (elapsed * before) / target };
+}
+
+/** 买【星际广播】：一局只能买一张，买完另一张永久锁死。 */
+export function buyCharter(
+  state: GameState,
+  which: 'tourism' | 'tech',
+  nowMs: number,
+): { state: GameState; text: string } {
+  if (state.charter) {
+    throw new Error(
+      state.charter === 'tourism' ? '已经选了旅游星系：技术星系的广播再也买不到了。' : '已经选了技术星系：旅游星系的广播再也买不到了。',
+    );
+  }
+  const hours = nowPlanetHours(state, nowMs);
+  if (!shopOpen(hours, state.upgrades.telescope)) {
+    throw new Error(shopWindowText(hours, state.upgrades.telescope));
+  }
+  if (which === 'tourism') {
+    if (state.credits < CHARTER_TOURISM_CREDITS) {
+      throw new Error('信用点不够：星际广播 · 旅游星系要 ' + CHARTER_TOURISM_CREDITS.toLocaleString('en-US') + ' 信用点，你现在有 ' + state.credits.toLocaleString('en-US') + '。');
+    }
+    return {
+      state: { ...state, charter: 'tourism', credits: state.credits - CHARTER_TOURISM_CREDITS, reputation: state.reputation ?? 0 },
+      text:
+        '买下了【星际广播 · 旅游星系】：从今天起，你的星系会出现在星际旅游航线上。\n' +
+        '观光塔台与访客驿站有图纸了；技术星系的广播已经买不到了。知名度从 0 开始——先把地标和停泊位做出来。',
+    };
+  }
+  if (state.energyKj < CHARTER_TECH_KJ) {
+    throw new Error('能量不够：星际广播 · 技术星系要 ' + CHARTER_TECH_KJ.toLocaleString('en-US') + ' kJ，你现在有 ' + Math.floor(state.energyKj).toLocaleString('en-US') + ' kJ。');
+  }
+  return {
+    state: { ...state, charter: 'tech', energyKj: state.energyKj - CHARTER_TECH_KJ, compute: state.compute ?? 0 },
+    text:
+      '买下了【星际广播 · 技术星系】：星际商会承认你的工业资格证，员工与设备可以进来了。\n' +
+      '招募站、员工公寓、晶圆厂有图纸了；旅游星系的广播已经买不到了。计算力从 0 开始——先招人，再开厂。',
+  };
+}
+
+/** 特许经济：游客、员工、知名度、计算力，一天结算一次。 */
+export function advanceCharter(system: StarSystem, state: GameState, nowMs: number): { state: GameState; events: GameEvent[] } {
+  const events: GameEvent[] = [];
+  if (!state.charter) return { state, events };
+  const nowHome = nowPlanetHours(state, nowMs);
+  const fromHome = state.lastCharterHomeHours ?? 0;
+  if (nowHome - fromHome < 1) return { state, events };
+  const delta = Math.min(24, nowHome - fromHome);
+  let next: GameState = { ...state, lastCharterHomeHours: fromHome + delta };
+  const planetIndex = next.location?.planetIndex ?? next.homePlanetIndex;
+  const onPlanet = next.structures.filter((s) => s.planetIndex === planetIndex);
+  const powered = (s: StructureRecord): boolean => next.energyKj > 0 || (next.grids[planetIndex] ?? 0) > 0;
+  const day = Math.floor(nowHome / 24);
+
+  if (next.charter === 'tourism') {
+    const docks = onPlanet.filter((s) => s.kind === 'tourism_dock' && powered(s)).length;
+    const lodges = onPlanet.filter((s) => s.kind === 'visitor_lodge' && powered(s) && interiorComfortable(structureInteriorC(system, next, s, nowMs), LODGE_COMFORT_C)).length;
+    const slots = docks * TOURISM_VISITORS_PER_DOCK;
+    const bedLimit = lodges * 30;
+    const reputation = next.reputation ?? 0;
+    const capacity = Math.min(slots, bedLimit);
+    const visitors = Math.max(0, Math.min(capacity, Math.round(capacity * (0.5 + reputation / 100))));
+    if (slots > 0 && bedLimit === 0) {
+      if (!next.lastCharterWarnDay || next.lastCharterWarnDay !== day) {
+        events.push({ type: 'genesis.charter', text: '停泊位有了，但还没有【访客驿站】：游客没地方住，不会下船。' });
+        next = { ...next, lastCharterWarnDay: day };
+      }
+      return { state: next, events };
+    }
+    const draw = visitors * VISITOR_KJ_PER_HOUR * delta;
+    const tourLines = onPlanet.filter((s) => s.kind === 'tour_line' && powered(s)).length;
+    const souvenirs = onPlanet.filter((s) => s.kind === 'souvenir' && powered(s)).length;
+    const biomass = Object.values(next.stores).reduce((sum, st) => sum + (st.biomass ?? 0), 0);
+    const souvenirVisitors = Math.min(visitors, Math.floor(biomass / SOUVENIR_BIOMASS_PER_VISITOR));
+    const earned = Math.round(
+      visitors * VISITOR_CREDITS * (1 + TOUR_LINE_CREDITS_BONUS * tourLines) +
+        souvenirs * souvenirVisitors * SOUVENIR_CREDITS_PER_VISITOR,
+    );
+    next = {
+      ...next,
+      visitorsYesterday: visitors,
+      credits: next.credits + earned,
+      energyKj: Math.max(0, next.energyKj - draw),
+    };
+    if (visitors > 0) {
+      const gained = REPUTATION_PER_VISITOR_CYCLE;
+      next = { ...next, reputation: Math.min(100, reputation + gained) };
+    } else if (reputation > 0) {
+      next = { ...next, reputation: Math.max(0, reputation - REPUTATION_DAILY_DECAY) };
+    }
+    if (earned > 0) {
+      events.push({
+        type: 'genesis.visitors',
+        text:
+          '今天来了 ' + visitors + ' 位游客：付了 ' + earned + ' 信用点，用掉 ' + Math.round(draw) + ' kJ 的停泊与生命维持。',
+      });
+    }
+    // 猫科观赏：站点附近有猫科就涨口碑（每只每天 +0.4，封顶 +2）。
+    const cats = next.structures
+      .filter((structure) => structure.kind === 'tourism_dock' || structure.kind === 'visitor_lodge')
+      .reduce((sum, structure) => sum + viewableCatsNear(next, structure.planetIndex, structure.latDeg ?? 0, structure.lonDeg ?? 0, 5), 0);
+    if (cats > 0) {
+      next = { ...next, reputation: Math.min(100, (next.reputation ?? 0) + Math.min(2, 0.4 * cats) * (delta / 24)) };
+    }
+    return { state: next, events };
+  }
+
+  // 技术线：员工、工资、测算力。
+  const offices = onPlanet.filter((s) => s.kind === 'recruit_office' && powered(s)).length;
+  const housing = onPlanet.filter((s) => s.kind === 'staff_housing' && powered(s) && interiorComfortable(structureInteriorC(system, next, s, nowMs), STAFF_COMFORT_C)).length * STAFF_PER_HOUSING;
+  const fabs = onPlanet.filter((s) => s.kind === 'fab' && powered(s)).length;
+  const staffNow = next.staff ?? 0;
+  let staff = staffNow;
+  if (day !== (next.lastPayrollDay ?? -1) && staff > 0) {
+    const wage = staff * STAFF_WAGE_CREDITS_PER_DAY;
+    if (next.credits >= wage) {
+      next = { ...next, credits: next.credits - wage, lastPayrollDay: day };
+      events.push({ type: 'genesis.payroll', text: '发了今天的工资：' + staff + ' 人 × ' + STAFF_WAGE_CREDITS_PER_DAY + ' 信用点 = ' + wage + '。' });
+    } else {
+      events.push({
+        type: 'genesis.strike',
+        text: '付不起工资（要 ' + wage + ' 信用点，只有 ' + next.credits + '）：员工罢工，工厂停转，直到你把信用点补上。',
+      });
+    }
+  }
+  // 住不下（或太热太冷）时，每天走一个人——不是一次清零，给玩家补齐的时间。
+  if (day !== (next.lastAttritionDay ?? -1)) {
+    next = { ...next, lastAttritionDay: day };
+    if (staffNow > housing) {
+      staff = Math.max(housing, staffNow - 1);
+      events.push({
+        type: 'genesis.staff',
+        text: '有员工搬走了：宿舍床位只够 ' + housing + ' 人（太热、太冷或没通电的公寓不算床位），现在是 ' + staff + ' 人。',
+      });
+    }
+  }
+  const canHire = Math.min(housing, staffNow + offices * STAFF_PER_OFFICE_PER_DAY);
+  if (canHire > staffNow) staff = canHire;
+  const paidUp = next.credits >= (next.staff ?? 0) * 0 + 0;
+  const working = staff > 0 && (next.credits > 0 || (next.lastPayrollDay ?? -1) === day);
+  const arrays = onPlanet.filter((s) => s.kind === 'compute_array' && powered(s)).length;
+  const arrayMultiplier = Math.min(COMPUTE_ARRAY_MAX_MULTIPLIER, Math.pow(COMPUTE_ARRAY_MULTIPLIER, arrays));
+  const mirrors = (next.wonders ?? []).includes('orbital_mirror') ? 1 : 0;
+  const valley = (next.wonders ?? []).includes('silicon_valley') ? 2 : 1;
+  const perFab = FAB_COMPUTE_PER_HOUR + mirrors;
+  const compute = (working ? fabs * perFab * arrayMultiplier * valley : 0) * delta;
+  next = {
+    ...next,
+    staff,
+    compute: Math.min(10_000, (next.compute ?? 0) + compute),
+  };
+  // 富集塔吃计算力换氘氚燃料；提取器本身只提供原料（这里合并成一步：有提取器才能富集）。
+  const extractors = onPlanet.filter((s) => s.kind === 'heavy_water' && powered(s)).length;
+  const towers = onPlanet.filter((s) => s.kind === 'enrichment' && powered(s)).length;
+  const pairs = Math.min(extractors, towers);
+  if (pairs > 0) {
+    const wantCompute = pairs * ENRICHMENT_COMPUTE_PER_HOUR * delta;
+    const usedCompute = Math.min(next.compute ?? 0, wantCompute);
+    const kg = (usedCompute / ENRICHMENT_COMPUTE_PER_HOUR) * ENRICHMENT_KG_PER_HOUR;
+    next = {
+      ...next,
+      compute: Math.max(0, (next.compute ?? 0) - usedCompute),
+      inventory: { ...next.inventory, deuterium: Math.round((((next.inventory.deuterium ?? 0) + kg) * 1000)) / 1000 },
+    };
+    if (kg > 0) {
+      events.push({ type: 'genesis.fuel', text: '富集塔出了 ' + kg.toFixed(2) + ' kg 氘氚燃料（现在 ' + (next.inventory.deuterium ?? 0).toFixed(2) + ' kg）。' });
+    }
+  }
+  // 【拟造S2机关】：富集塔优先吃算力，剩下的按 2 算力/时 → 40,000 kJ/时 换成电。
+  const s2 = (next.wonders ?? []).filter((w) => w === 's2_engine').length;
+  if (s2 > 0) {
+    const wantS2 = s2 * S2_COMPUTE_PER_HOUR * delta;
+    const usedS2 = Math.min(next.compute ?? 0, wantS2);
+    if (usedS2 > 0) {
+      const gain = Math.round(usedS2 * (S2_KJ_PER_COMPUTE / S2_COMPUTE_PER_HOUR));
+      next = {
+        ...next,
+        compute: Math.max(0, (next.compute ?? 0) - usedS2),
+        energyKj: next.energyKj + gain,
+      };
+      events.push({ type: 'genesis.compute', text: 'S2 机关烧掉了 ' + Math.round(usedS2) + ' 点计算力，换回 ' + gain + ' kJ。' });
+    }
+  }
+  if (compute > 0) {
+    events.push({ type: 'genesis.compute', text: '晶圆厂出了 ' + Math.round(compute) + ' 点计算力（现在 ' + Math.floor(next.compute ?? 0) + '）。' });
+  }
+  void paidUp;
+  return { state: next, events };
+}
+
 export const BUILD_SPECS: Record<
   StructureRecord['kind'],
   {
@@ -4311,6 +4818,8 @@ export const BUILD_SPECS: Record<
     costCredits?: number;
     /** 原子打印机要吃的钨（份）。蓝图结构优化后 ×0.75（向下取整，最少 1）。 */
     tungsten: number;
+    /** 本局特许执照要求：没有对应执照就没有图纸。 */
+    charter?: 'tourism' | 'tech';
   }
 > = {
   greenhouse: {
@@ -4320,6 +4829,90 @@ export const BUILD_SPECS: Record<
     upkeepKjPerHour: GREENHOUSE_UPKEEP_KJ_PER_HOUR,
     tungsten: 2,
   },
+  tourism_dock: {
+    label: '观光塔台',
+    costKj: TOURISM_DOCK_COST_KJ,
+    buildHours: TOURISM_DOCK_HOME_HOURS,
+    upkeepKjPerHour: TOURISM_DOCK_KJ_PER_HOUR,
+    tungsten: TOURISM_DOCK_TUNGSTEN,
+    charter: 'tourism',
+  },
+  visitor_lodge: {
+    label: '访客驿站',
+    costKj: VISITOR_LODGE_COST_KJ,
+    buildHours: VISITOR_LODGE_HOME_HOURS,
+    upkeepKjPerHour: VISITOR_LODGE_KJ_PER_HOUR,
+    tungsten: VISITOR_LODGE_TUNGSTEN,
+    charter: 'tourism',
+  },
+  recruit_office: {
+    label: '招募站',
+    costKj: 0,
+    buildHours: RECRUIT_HOME_HOURS,
+    upkeepKjPerHour: RECRUIT_KJ_PER_HOUR,
+    costCredits: RECRUIT_COST_CREDITS,
+    tungsten: 0,
+    charter: 'tech',
+  },
+  staff_housing: {
+    label: '员工公寓',
+    costKj: STAFF_HOUSING_COST_KJ,
+    buildHours: STAFF_HOUSING_HOME_HOURS,
+    upkeepKjPerHour: STAFF_HOUSING_KJ_PER_HOUR,
+    tungsten: STAFF_HOUSING_TUNGSTEN,
+    charter: 'tech',
+  },
+  fab: {
+    label: '晶圆厂',
+    costKj: FAB_COST_KJ,
+    buildHours: FAB_HOME_HOURS,
+    upkeepKjPerHour: FAB_KJ_PER_HOUR,
+    tungsten: FAB_TUNGSTEN,
+    charter: 'tech',
+  },
+  tour_line: {
+    label: '观光线路站',
+    costKj: TOUR_LINE_COST_KJ,
+    buildHours: TOUR_LINE_HOME_HOURS,
+    upkeepKjPerHour: TOUR_LINE_KJ_PER_HOUR,
+    tungsten: TOUR_LINE_TUNGSTEN,
+    charter: 'tourism',
+  },
+  souvenir: {
+    label: '纪念品店',
+    costKj: SOUVENIR_COST_KJ,
+    buildHours: SOUVENIR_HOME_HOURS,
+    upkeepKjPerHour: SOUVENIR_KJ_PER_HOUR,
+    tungsten: SOUVENIR_TUNGSTEN,
+    charter: 'tourism',
+  },
+  compute_array: {
+    label: '计算阵列',
+    costKj: COMPUTE_ARRAY_COST_KJ,
+    buildHours: COMPUTE_ARRAY_HOME_HOURS,
+    upkeepKjPerHour: COMPUTE_ARRAY_KJ_PER_HOUR,
+    tungsten: COMPUTE_ARRAY_TUNGSTEN,
+    charter: 'tech',
+  },
+  heavy_water: {
+    label: '重水提取器',
+    costKj: HEAVY_WATER_COST_KJ,
+    buildHours: HEAVY_WATER_HOME_HOURS,
+    upkeepKjPerHour: HEAVY_WATER_KJ_PER_HOUR,
+    tungsten: HEAVY_WATER_TUNGSTEN,
+    charter: 'tech',
+  },
+  enrichment: {
+    label: '富集塔',
+    costKj: HEAVY_WATER_COST_KJ,
+    buildHours: HEAVY_WATER_HOME_HOURS,
+    upkeepKjPerHour: HEAVY_WATER_KJ_PER_HOUR,
+    tungsten: HEAVY_WATER_TUNGSTEN,
+    charter: 'tech',
+  },
+  fence: { label: '围栏', costKj: 20_000, buildHours: 0.2, upkeepKjPerHour: 20, tungsten: 1 },
+  scarecrow: { label: '稻草人', costKj: 3_000, buildHours: 0.1, upkeepKjPerHour: 5, tungsten: 0 },
+  feed_trough: { label: '喂食槽', costKj: 6_000, buildHours: 0.1, upkeepKjPerHour: 10, tungsten: 1 },
   planter: {
     label: '种植盆',
     costKj: PLANTER_COST_KJ,
@@ -4720,7 +5313,10 @@ export function advanceFlora(system: StarSystem, state: GameState, nowMs: number
       plants[siteKey] = list;
       continue;
     }
-    const climate = climateAt(planet.surface, site.latDeg, site.lonDeg, nowHours, yearHomeHoursOf(state), planet.obliquityDeg);
+    const climate = withIceWater(
+      site,
+      climateAt(planet.surface, site.latDeg, site.lonDeg, nowHours, yearHomeHoursOf(state), planet.obliquityDeg),
+    );
     // 群系改变器：改造过的格子气候被拉向温和值（超级温室，任何环境都能工作）。
     if (planet.surface.kind === 'terrestrial' && state.terra) {
       const terra = terraClimate(planet.surface, state.terra, site.planetIndex, site.cellI, site.cellJ, climate);
@@ -5420,7 +6016,7 @@ export function advanceLabor(system: StarSystem, state: GameState, nowMs: number
       const kept = [...list];
       for (const entry of ready) {
         if (budget <= 0) break;
-        const result = harvestPlant(entry.plant, climate.fertility);
+        const result = harvestPlant(entry.plant, climate.fertility, nutrientFactor(entry.plant, climate));
         const kg = round3(result.resourceKg * bonus);
         if (kg <= 0) continue;
         if (free < kg) break; // 仓库满了：东西放不下，今天剩下的先不收。
@@ -5447,8 +6043,8 @@ export function advanceLabor(system: StarSystem, state: GameState, nowMs: number
         if (spec.medium === 'water' && site.kind !== 'water') continue;
         if (spec.medium === 'land' && site.kind !== 'land') continue;
         if (climate.tempC < spec.tempMinC || climate.tempC > spec.tempMaxC) continue;
-        const count = Object.values(plants).reduce((n, l) => n + l.filter((p) => p.species === bag.species).length, 0);
-        plants[siteKey] = [...current, newPlant(seedId(bag.species, count + 1), bag.species, bag.genes, nowHours)];
+        const fresh = newPlant(`${siteKey}#${maxPlantSeq(current) + 1}`, bag.species, bag.genes, nowHours);
+        plants[siteKey] = [...current, fresh];
         const idx = next.seedBags.findIndex((b) => b.id === bag.id);
         if (idx >= 0) {
           const left = (next.seedBags[idx]!.count ?? 1) - 1;
@@ -5509,6 +6105,37 @@ export function habitatInteriorC(
 }
 
 /** 居所温度不合人意的说法；住得下就返回 null。 */
+/** 任意建筑在当前站点的室内温度（不通电＝室外）。没有站点（母舰）返回 null。 */
+export function structureInteriorC(
+  system: StarSystem,
+  state: GameState,
+  structure: StructureRecord,
+  nowMs: number,
+): number | null {
+  const site = state.sites.find((s) => s.key === structure.siteKey);
+  if (!site) return null;
+  const planet = system.planets[structure.planetIndex];
+  if (!planet || planet.surface.kind !== 'terrestrial') return null;
+  const ambient = climateAt(
+    planet.surface,
+    site.latDeg,
+    site.lonDeg,
+    nowPlanetHours(state, nowMs),
+    state.calendar.planetDaysPerYear * 24,
+    planet.obliquityDeg,
+  ).tempC;
+  const powered = state.energyKj > 0 || (state.grids[structure.planetIndex] ?? 0) > 0;
+  if (!powered) return round2(ambient);
+  const pull = Math.max(-HABITAT_CLIMATE_PULL_C, Math.min(HABITAT_CLIMATE_PULL_C, 18 - ambient));
+  return round2(ambient + pull);
+}
+
+/** 室内温度落在区间内才算有人住。 */
+export function interiorComfortable(interiorC: number | null, range: { min: number; max: number }): boolean {
+  if (interiorC === null) return true;
+  return interiorC >= range.min && interiorC <= range.max;
+}
+
 export function habitatComfortIssue(
   system: StarSystem,
   state: GameState,
@@ -5643,6 +6270,56 @@ export function serializeGame(state: GameState): GameFile {
  * 读回 game.json。结构不对就直接报错——宁可让 Agent 看到「存档坏了」，
  * 也不要带着半个状态跑。行星序号越界也在这里拦。
  */
+/**
+ * 给「上个版本写下的、缺了新字段的」存档补默认值，再交给 deserializeGame。
+ *
+ * 只补可选字段：缺倍速当 1、缺执照当没选、缺计数当 0、缺数组当空。
+ * 形状本身错了（历法缺失、母星越界、建筑类型不认识）仍然会抛错——那种不能猜。
+ */
+export function repairGameRaw(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const file = raw as { game?: Record<string, unknown> };
+  if (!file.game || typeof file.game !== 'object') return raw;
+  const g = file.game;
+  const numbers: Array<[string, number]> = [
+    ['speed', 1],
+    ['reputation', 0],
+    ['compute', 0],
+    ['staff', 0],
+    ['visitorsYesterday', 0],
+    ['samples', 0],
+    ['survey', 0],
+    ['fertilizerBought', 0],
+    ['lastFloraHomeHours', 0],
+    ['lastIndustryHomeHours', 0],
+    ['lastIceHomeHours', 0],
+    ['lastAnimalHomeHours', 0],
+    ['lastCharterHomeHours', 0],
+    ['lastPayrollDay', -1],
+    ['lastCharterWarnDay', -1],
+    ['lastAttritionDay', -1],
+  ];
+  for (const [key, value] of numbers) {
+    if (g[key] == null) g[key] = value;
+  }
+  if (g.charter == null) g.charter = null;
+  if (g.wonder == null) g.wonder = null;
+  const arrays = [
+    'visited', 'charts', 'sites', 'structures', 'sails', 'monitors', 'counters',
+    'builds', 'seedBags', 'animals', 'territories', 'wonders',
+  ];
+  for (const key of arrays) {
+    if (!Array.isArray(g[key])) g[key] = [];
+  }
+  const objects = [
+    'mined', 'scar', 'surveyed', 'stores', 'siteStores', 'plants', 'daily', 'upgrades', 'names', 'inventory', 'seedBags',
+  ];
+  for (const key of objects) {
+    if (key !== 'seedBags' && (!g[key] || typeof g[key] !== 'object')) g[key] = {};
+  }
+  return raw;
+}
+
 export function deserializeGame(system: StarSystem, raw: unknown): GameState {
   const file = raw as Partial<GameFile> | null | undefined;
   if (!file || typeof file !== 'object') throw new Error('game.json 不是对象。');
@@ -5811,6 +6488,34 @@ export function deserializeGame(system: StarSystem, raw: unknown): GameState {
     }
   }
   if (!Array.isArray(g.seedBags)) throw new Error('game.json 的种子袋不是数组。');
+  const wonders = (g as { wonders?: unknown }).wonders;
+  if (wonders !== undefined && (!Array.isArray(wonders) || wonders.some((x) => typeof x !== 'string'))) {
+    throw new Error('game.json 的奇观记录不合法。');
+  }
+  const wonder = (g as { wonder?: unknown }).wonder;
+  if (wonder !== undefined && wonder !== null) {
+    const w = wonder as { id?: unknown; progress?: unknown };
+    if (typeof w.id !== 'string' || typeof w.progress !== 'number' || !Number.isFinite(w.progress)) {
+      throw new Error('game.json 的奇观工程不合法。');
+    }
+  }
+  const charter = (g as { charter?: unknown }).charter;
+  if (charter !== undefined && charter !== 'tourism' && charter !== 'tech') {
+    throw new Error('game.json 的特许执照不合法：' + String(charter) + '。');
+  }
+  const speed = (g as { speed?: unknown }).speed;
+  if (speed !== undefined && (typeof speed !== 'number' || !Number.isInteger(speed) || speed < MIN_SPEED || speed > MAX_SPEED)) {
+    throw new Error('game.json 的时间倍速不合法：' + String(speed) + '。');
+  }
+  for (const key of ['reputation', 'compute', 'staff', 'visitorsYesterday', 'lastCharterHomeHours', 'lastPayrollDay', 'lastCharterWarnDay', 'lastAttritionDay', 'lastAnimalHomeHours'] as const) {
+    const value = (g as Record<string, unknown>)[key];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) {
+      throw new Error('game.json 的 ' + key + ' 不合法：' + String(value) + '。');
+    }
+  }
+  if (g.fertilizerBought !== undefined && (typeof g.fertilizerBought !== 'number' || !Number.isFinite(g.fertilizerBought) || g.fertilizerBought < 0)) {
+    throw new Error('game.json 的复合肥购买量不合法。');
+  }
   if (typeof g.seedsPurchased !== 'number' || !Number.isInteger(g.seedsPurchased) || g.seedsPurchased < 0) {
     throw new Error('game.json 的种子购买数不合法。');
   }
@@ -5936,6 +6641,8 @@ export function deserializeGame(system: StarSystem, raw: unknown): GameState {
   if (!Number.isFinite(lastCycleWarnDay)) throw new Error('game.json 的环路提醒日期不合法。');
   const lastIndustryHomeHours = Number((g as { lastIndustryHomeHours?: unknown }).lastIndustryHomeHours ?? 0);
   if (!Number.isFinite(lastIndustryHomeHours)) throw new Error('game.json 的工业结算时刻不合法。');
+  const lastIceHomeHours = Number((g as { lastIceHomeHours?: unknown }).lastIceHomeHours ?? 0);
+  if (!Number.isFinite(lastIceHomeHours)) throw new Error('game.json 的冰窖结算时刻不合法。');
   // 星图是后加的：旧档没有就按「一张没有」处理。
   const charts = (g as { charts?: unknown }).charts ?? [];
   if (!Array.isArray(charts) || charts.some((v) => typeof v !== 'string')) {
@@ -5947,6 +6654,7 @@ export function deserializeGame(system: StarSystem, raw: unknown): GameState {
     lastArmsHomeHours,
     lastCycleWarnDay,
     lastIndustryHomeHours,
+    lastIceHomeHours,
     upgrades: { ...(g.upgrades as Upgrades), telescope, sparkPlug, battery, subagent, blueprints, spectrometer },
     tungsten,
     grids,
@@ -6280,6 +6988,11 @@ export function windRateKjPerHour(system: StarSystem, state: GameState, structur
     const cell = cellIndexFor(site.latDeg, site.lonDeg);
     const biome = surface.biome[cell.i]?.[cell.j] ?? 0;
     const elevation = surface.elevationM[cell.i]?.[cell.j] ?? 0;
+    if (biome === 1) {
+      // 冰盖上的下降风：贴地、常年不停，随纬度变强（南极那种）。
+      const strength = Math.min(1, Math.abs(site.latDeg) / 90);
+      return Math.round(ICE_WIND_MIN_KJ_PER_HOUR + (ICE_WIND_MAX_KJ_PER_HOUR - ICE_WIND_MIN_KJ_PER_HOUR) * strength);
+    }
     return biome >= 12 && biome <= 16
       ? WIND_STORM_KJ_PER_HOUR
       : elevation >= WIND_HIGHLAND_MIN_M ? WIND_HIGHLAND_KJ_PER_HOUR : 0;
@@ -6437,5 +7150,242 @@ export function useCanned(
   return {
     state: next,
     text: '把 ' + n + ' 罐液氨施进了这段地：氮到 ' + (nextNutrients.n * 100).toFixed(0) + '%，收回 ' + returned + ' 个空钢瓶。',
+  };
+}
+
+/** 冰窖里的水同时当灌溉水：水量越多，站点气候越湿（最多 +0.5）。 */
+export function withIceWater(site: Site, climate: ClimateSample): ClimateSample {
+  if (!site.waterL) return climate;
+  const bonus = ICE_WETNESS_BONUS_MAX * Math.min(1, site.waterL / ICE_CELLAR_L);
+  return { ...climate, wetness: Math.min(1, climate.wetness + bonus) };
+}
+
+/** 冰盖站点：融雪进水窖（0.2 L/母星时），每株作物每小时喝 0.02 L。 */
+export function advanceIce(system: StarSystem, state: GameState, nowMs: number): { state: GameState; events: GameEvent[] } {
+  const nowHours = nowPlanetHours(state, nowMs);
+  const last = state.lastIceHomeHours ?? nowHours;
+  const delta = nowHours - last;
+  if (!(delta > 0)) return { state, events: [] };
+  let changed = false;
+  const sites = state.sites.map((site) => {
+    // 冰盖站点的 kind 仍按湿度算（可能是 water），所以这里只看格子是不是冰。
+    const planet = system.planets[site.planetIndex - 1];
+    if (!planet || planet.surface.kind !== "terrestrial") return site;
+    const cell = cellIndexFor(site.latDeg, site.lonDeg);
+    if ((planet.surface.biome[cell.i]?.[cell.j] ?? 0) !== 1) return site;
+    const crops = state.plants[site.key]?.length ?? 0;
+    const melt = ICE_MELT_L_PER_HOUR * delta;
+    const drink = ICE_IRRIGATION_L_PER_PLANT_HOUR * delta * crops;
+    const after = Math.max(0, Math.min(ICE_CELLAR_L, (site.waterL ?? 0) + melt - drink));
+    changed = true;
+    return { ...site, waterL: Math.round(after * 1000) / 1000 };
+  });
+  if (!changed) return { state: { ...state, lastIceHomeHours: nowHours }, events: [] };
+  return { state: { ...state, sites, lastIceHomeHours: nowHours }, events: [] };
+}
+
+/** 创世时的死局判定：母星可落脚陆地太少，就别让子代理迫降了。 */
+export function landingRefusal(system: StarSystem): string | null {
+  const home = mostHabitable(system);
+  const surface = home.surface;
+  if (surface.kind !== "terrestrial") {
+    return `子代理拒绝在该星系迫降：母星没有可供站点立足的地面。换一颗种子试试。`;
+  }
+  let land = 0;
+  let warm = 0;
+  let total = 0;
+  for (let i = 0; i < surface.elevationM.length; i++) {
+    const row = surface.elevationM[i];
+    for (let j = 0; j < row.length; j++) {
+      total += 1;
+      const elev = row[j];
+      const biome = surface.biome[i]?.[j] ?? 0;
+      if (elev >= 0 && biome !== 0) {
+        land += 1;
+        if (biome >= 2 && biome <= 9) warm += 1;
+      }
+    }
+  }
+  if (land >= LANDING_MIN_CELLS && warm >= LANDING_MIN_WARM_CELLS) return null;
+  const pct = total > 0 ? ((land / total) * 100).toFixed(1) : "0.0";
+  return `子代理拒绝在该星系迫降：母星可用陆地只有 ${land} 格（约 ${pct}%），剩下的全是水或冰面——没有能扎第一个站点的地方。换一颗种子，或者把恒星质量的滑块往中间挪一点。`;
+}
+
+
+/* ---------------------------------------------------------------- 复合肥（2.2.3） */
+
+/** 一公斤复合肥补多少养分：氮给得很少——氮仍然主要靠蓝藻/液氨，买肥只是把「等」换成「花钱」。 */
+export const COMPOUND_FERTILIZER_PER_KG = { n: 0.02, p: 0.05, k: 0.05, trace: 0.03 };
+
+/** 从商人那里按公斤买复合肥，进背包；每买一公斤，下一公斤更贵（当天限 30 kg）。 */
+export function buyFertilizer(state: GameState, kg: number, nowMs: number): { state: GameState; text: string } {
+  const amount = Math.round(kg * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('要买多少公斤？给个正数。');
+  const hours = nowPlanetHours(state, nowMs);
+  const level = state.upgrades.telescope;
+  if (!shopOpen(hours, level)) throw new Error(shopWindowText(hours, level));
+  const day = dayIndexOf(hours);
+  const daily = state.daily.day === day ? state.daily : { day, sold: {}, bought: {} };
+  const good = BUY_GOODS.find((g) => g.id === 'fertilizer')!;
+  const limit = buyDailyLimitFor(good, level);
+  const bought = daily.bought['buy:fertilizer'] ?? 0;
+  if (bought + amount > limit + 1e-9) throw new Error(`今天只剩 ${round3(limit - bought)} kg 复合肥了（一天 ${limit} kg）。`);
+  const boughtBefore = state.fertilizerBought ?? 0;
+  let price = 0;
+  for (let i = 0; i < amount; i += 1) price += fertilizerPriceKj(boughtBefore + i);
+  price = Math.round(price);
+  if (state.energyKj < price) throw new Error(`能量不够：${amount} kg 复合肥要 ${price} kJ，现在只有 ${Math.floor(state.energyKj)} kJ。`);
+  const weight = inventoryWeight(state);
+  if (weight + amount > INVENTORY_LIMIT_KG + 1e-9) {
+    throw new Error(`背包快满了：现在 ${round3(weight)} kg，上限 ${INVENTORY_LIMIT_KG} kg。先施肥、卖货或烧掉一些。`);
+  }
+  return {
+    state: {
+      ...state,
+      energyKj: state.energyKj - price,
+      inventory: { ...state.inventory, fertilizer: round3((state.inventory.fertilizer ?? 0) + amount) },
+      fertilizerBought: boughtBefore + amount,
+      daily: { ...daily, bought: { ...daily.bought, 'buy:fertilizer': bought + amount } },
+    },
+    text: `买了 ${amount} kg 复合肥，花了 ${price} kJ；下一公斤要 ${fertilizerPriceKj(boughtBefore + amount)} kJ。`,
+  };
+}
+
+/** 把背包里的复合肥撒到站点（氮只给一点，磷钾与微量给得多一些）。 */
+export function applyFertilizer(
+  system: StarSystem,
+  state: GameState,
+  siteKey: string,
+  kg: number,
+): { state: GameState; text: string } {
+  const amount = Math.round(kg * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('要撒多少公斤？给个正数。');
+  const site = state.sites.find((s) => s.key === siteKey);
+  if (!site) throw new Error(`没有这个站点：${siteKey}`);
+  const have = state.inventory.fertilizer ?? 0;
+  if (have + 1e-9 < amount) throw new Error(`背包里没有这么多复合肥：要 ${amount} kg，现在 ${round3(have)} kg。商人在的时候可以买。`);
+  const cap = nutrientCapOf(system, site);
+  const before = { ...site.nutrients };
+  const next = addNutrients(
+    site.nutrients,
+    {
+      n: COMPOUND_FERTILIZER_PER_KG.n * amount,
+      p: COMPOUND_FERTILIZER_PER_KG.p * amount,
+      k: COMPOUND_FERTILIZER_PER_KG.k * amount,
+      trace: COMPOUND_FERTILIZER_PER_KG.trace * amount,
+    },
+    Math.max(cap, site.nutrients.n),
+    Math.max(traceCapOf(system, state, site), site.nutrients.trace),
+  );
+  return {
+    state: {
+      ...state,
+      sites: state.sites.map((s) => (s.key === siteKey ? { ...s, nutrients: next } : s)),
+      inventory: { ...state.inventory, fertilizer: round3(have - amount) },
+    },
+    text: `撒了 ${amount} kg 复合肥：氮 ${before.n} → ${next.n}、磷 ${before.p} → ${next.p}、钾 ${before.k} → ${next.k}、微量 ${before.trace} → ${next.trace}。`,
+  };
+}
+
+export type WonderId = 'sky_ring' | 'under_ice_eye' | 'silicon_valley' | 'orbital_mirror' | 's2_engine';
+
+export const WONDER_SPECS: Record<
+  WonderId,
+  { label: string; charter: 'tourism' | 'tech'; costKj: number; tungsten: number; homeHours: number; effect: string; maxCount?: number }
+> = {
+  sky_ring: {
+    label: '天穹环',
+    charter: 'tourism',
+    costKj: 2_000_000,
+    tungsten: 150,
+    homeHours: 48,
+    effect: '知名度 +15',
+  },
+  under_ice_eye: {
+    label: '冰下之眼',
+    charter: 'tourism',
+    costKj: 1_200_000,
+    tungsten: 80,
+    homeHours: 36,
+    effect: '知名度 +10',
+  },
+  silicon_valley: {
+    label: '硅谷',
+    charter: 'tech',
+    costKj: 4_000_000,
+    tungsten: 300,
+    homeHours: 72,
+    effect: '晶圆厂的算力翻倍',
+  },
+  s2_engine: {
+    label: '拟造S2机关',
+    charter: 'tech',
+    costKj: 300_000,
+    tungsten: 25,
+    homeHours: 1.5,
+    effect: '吃掉剩余计算力：每座 2 计算力/时 → 40,000 kJ/时',
+    maxCount: S2_ENGINE_MAX,
+  },
+  orbital_mirror: {
+    label: '轨道镜阵',
+    charter: 'tech',
+    costKj: 2_000_000,
+    tungsten: 120,
+    homeHours: 48,
+    effect: '每座晶圆厂再多 1 点算力',
+  },
+};
+
+export function startWonder(state: GameState, id: string, nowMs: number): { state: GameState; text: string } {
+  const spec = WONDER_SPECS[id as WonderId];
+  if (!spec) throw new Error('没有这个奇观：' + id + '（可选 sky_ring / under_ice_eye / silicon_valley / orbital_mirror）。');
+  if (!state.charter) throw new Error('还没选执照：奇观要先有星系执照。');
+  if (state.charter !== spec.charter) throw new Error('这座奇观只在' + (spec.charter === 'tourism' ? '旅游' : '技术') + '星系能建。');
+  const built = (state.wonders ?? []).filter((w) => w === id).length;
+  if (spec.maxCount !== undefined) {
+    if (built >= spec.maxCount) throw new Error("【" + spec.label + "】最多 " + spec.maxCount + " 座：已经建满了。");
+  } else if (built > 0) {
+    throw new Error('这座奇观已经建成了。');
+  }
+  if (state.wonder) throw new Error('奇观工程线只有一条：先把【' + (WONDER_SPECS[state.wonder.id as WonderId]?.label ?? state.wonder.id) + '】建完。');
+  if (state.energyKj < spec.costKj) throw new Error('能量不够：' + spec.label + '要 ' + spec.costKj + ' kJ，现在 ' + Math.round(state.energyKj) + ' kJ。');
+  if (state.tungsten < spec.tungsten) throw new Error('钨不够：' + spec.label + '要 ' + spec.tungsten + ' 份，现在 ' + state.tungsten + ' 份。');
+  const next: GameState = {
+    ...state,
+    energyKj: state.energyKj - spec.costKj,
+    tungsten: state.tungsten - spec.tungsten,
+    wonder: { id, progress: 0, lastHomeHours: nowPlanetHours(state, nowMs), stagnantHomeHours: 0 },
+  };
+  return { state: next, text: '开工了：' + spec.label + '（' + spec.homeHours + ' 母星时，一条工程线只能建一座）。' };
+}
+
+export function advanceWonder(state: GameState, nowMs: number): { state: GameState; events: GameEvent[] } {
+  const events: GameEvent[] = [];
+  const wonder = state.wonder;
+  if (!wonder) return { state, events };
+  const spec = WONDER_SPECS[wonder.id as WonderId];
+  if (!spec) return { state, events };
+  const nowHome = nowPlanetHours(state, nowMs);
+  const delta = Math.min(24, nowHome - wonder.lastHomeHours);
+  if (delta <= 0) return { state, events };
+  const powered = state.energyKj > 0 || Object.values(state.grids).some((kj) => kj > 0);
+  let progress = wonder.progress + (powered ? delta / spec.homeHours : 0);
+  let stagnant = powered ? 0 : wonder.stagnantHomeHours + delta;
+  if (stagnant > WONDER_STALL_HOME_HOURS) {
+    progress = Math.max(0, progress - WONDER_DECAY_PER_DAY * (delta / 24));
+  }
+  const clamped = Math.min(1, progress);
+  if (clamped >= 1) {
+    const wonders = [...(state.wonders ?? []), wonder.id];
+    let next: GameState = { ...state, wonders, wonder: null };
+    if (wonder.id === 'sky_ring' || wonder.id === 'under_ice_eye') {
+      next = { ...next, reputation: Math.min(100, (next.reputation ?? 0) + (wonder.id === 'sky_ring' ? 15 : 10)) };
+    }
+    events.push({ type: 'genesis.wonder', text: '【' + spec.label + '】落成了：' + spec.effect + '。' });
+    return { state: next, events };
+  }
+  return {
+    state: { ...state, wonder: { ...wonder, progress: clamped, lastHomeHours: wonder.lastHomeHours + delta, stagnantHomeHours: stagnant } },
+    events,
   };
 }

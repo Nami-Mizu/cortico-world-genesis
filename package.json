@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-genesis",
-  "version": "2.1.6",
+  "version": "3.5.2",
   "type": "module",
   "description": "给 Agent 一颗物理自洽、一次性创世的星球：种子与少量旋钮生成恒星系与行星属性。",
   "license": "MIT",
@@ -55,5 +55,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
-  }
+  },
+  "displayName": "栖星 · 创世记"
 }

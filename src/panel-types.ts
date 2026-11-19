@@ -30,10 +30,14 @@ export interface GenesisPanelClock {
 /** 面板「能量」区：储能、太阳帆数、动能发电机冷却。 */
 export interface GenesisPanelPower {
   energyKj: number;
+  /** 信用点（交易用；放在这里是为了让顶栏与概览不用再问一次商店）。 */
+  credits: number;
   /** 原子打印机剩下的钨（份）。 */
   tungsten: number;
   /** 着陆舱：开局的口粮/水/氧气和还能撑多久。 */
   ship: GenesisPanelShip;
+  /** 执照与两条线的存量。 */
+  charter: GenesisPanelCharter;
   /** 本地行星电网：有没有整流电塔、离多远、存了多少。 */
   grid: GenesisPanelGrid;
   sails: number;
@@ -89,6 +93,10 @@ export interface GenesisPanelGreenhouse {
   ambientC: number | null;
   /** 当前温差（℃）。 */
   deltaC: number;
+  /** 室内温度（℃）；断电或超出能力时为 null。 */
+  interiorC: number | null;
+  /** 是否通电（断电时温室不工作）。 */
+  powered: boolean;
   realismCores: number;
   /** 冷库数量（影响保鲜）。 */
   coldStores: number;
@@ -163,8 +171,55 @@ export interface GenesisPanelBuild {
   leftHomeHours: number;
 }
 
+/** 执照与两条线的存量（2.4.0）。 */
+export interface GenesisPanelCharter {
+  /** 还没选就是 null。 */
+  charter: 'tourism' | 'tech' | null;
+  /** 0–100，只有旅游线会长。 */
+  reputation: number;
+  /** 只有科技线会长。 */
+  compute: number;
+  /** 科技线的员工数与上限。 */
+  staff: number;
+  staffCap: number;
+  /** 昨日到港游客（旅游线）。 */
+  visitors: number;
+  /** 时间倍速（1–200）。 */
+  speed: number;
+  /** 1 倍速下「一个母星时 = 多少现实分钟」。 */
+  baseMinutesPerHomeHour: number;
+  /** 住得下（温度合适、通电）的访客床位。 */
+  lodgeBeds: number;
+  /** 住得下的员工床位。 */
+  housingBeds: number;
+  /** 因为太热/太冷而白建的住所。 */
+  tempBlocked: string[];
+  /** 当前倍速下同一件事。 */
+  minutesPerHomeHour: number;
+  /** 停泊位 / 床位 / 招募站 / 晶圆厂数量，面板直接拿去说人话。 */
+  docks: number;
+  lodges: number;
+  offices: number;
+  fabs: number;
+  /** 正在建的奇观（一次只有一座）。 */
+  wonder: { id: string; label: string; progress: number } | null;
+  /** 已经落成的奇观。 */
+  wonders: string[];
+}
+
+/** 动物划的领地（面板画圆环用）。 */
+export interface GenesisPanelTerritory {
+  species: string;
+  label: string;
+  latDeg: number;
+  lonDeg: number;
+  radiusKm: number;
+}
+
 /** 面板一次拿到的全部数据；`locked` 为真时说明已经创世，界面不再给表单。 */
 export interface GenesisPanelState {
+  /** 读档失败的原因（null = 正常）。面板用它区分「没创世」与「存档坏了」。 */
+  loadError?: string | null;
   locked: boolean;
   card: string | null;
   planets: GenesisPlanetRow[];
@@ -192,6 +247,8 @@ export interface GenesisPanelState {
   habitats: GenesisPanelHabitat[];
   /** 今天的基因订单。 */
   orders: GenesisPanelOrder[];
+  /** 动物领地（地表页画圆环用）。 */
+  territories?: GenesisPanelTerritory[];
 }
 
 export interface GenesisPanelProtocolTask {
@@ -234,6 +291,8 @@ export interface GenesisProtocolPanel {
     hoursLeft: number;
   } | null;
   /** 人口：常住 / 容量 / 舱里还剩多少人 / 每 20 人一个「人手」。 */
+  /** 【再创世】：带着档案去下一张地图。blockers 为空才点得动。 */
+  recreate: { blockers: string[]; ready: boolean; seed: string; starMass: number };
   population?: {
     population: number;
     capacity: number;
@@ -342,5 +401,48 @@ export interface GenesisUpgradeCard {
 export interface GenesisUpgradeState {
   locked: boolean;
   energyKj: number;
+  /** 电池上限（顶栏按它算百分比）。 */
+  capacityKj: number;
   cards: GenesisUpgradeCard[];
+}
+
+/** 商店页签的一行货（买或卖）。 */
+export interface GenesisShopRow {
+  id: string;
+  name: string;
+  /** 已格式化好的一行价格，比如「1,200 kJ」「30 信用点/kg」。 */
+  priceLabel: string;
+  /** 今天还能买卖多少。 */
+  limitLabel: string;
+  note?: string;
+  /** 卖出时：我手里有多少（kg 或份）。 */
+  held?: number;
+  /** 这一行今天卖的具体物种（种子行才有）。 */
+  species?: string;
+}
+
+/** 商店页签的一张基因订单。 */
+export interface GenesisShopOrder {
+  id: string;
+  label: string;
+  note: string;
+}
+
+/** 「商店」页签：开没开张、货架、收购价、订单。 */
+export interface GenesisShopPanel {
+  open: boolean;
+  /** 「12:00–23:00 营业」这类说明；关张时说明为什么。 */
+  window: string;
+  /** 离下次开张还有几个母星时（开张时为 0）。 */
+  nextOpenHours: number;
+  level: number;
+  credits: number;
+  energyKj: number;
+  capacityKj: number;
+  tungsten: number;
+  buyables: GenesisShopRow[];
+  sellables: GenesisShopRow[];
+  orders: GenesisShopOrder[];
+  /** 关张时给一句总说明。 */
+  closedNote?: string;
 }

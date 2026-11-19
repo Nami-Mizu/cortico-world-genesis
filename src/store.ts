@@ -1,4 +1,4 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { GenesisSpec, StarSystem } from './model.ts';
 import { assertSave } from './schema.ts';
@@ -59,6 +59,18 @@ export class GenesisStore {
     return save;
   }
 
+  /**
+   * 覆盖写入（导入存档用）。
+   *
+   * 与 createOnce 的区别只有一个：它不检查「已经存在就不写」。
+   * 导入是玩家显式要求的覆盖，所以这里不做锁定；校验交给调用方（assertSave + specHash 比对）。
+   */
+  async overwrite(system: StarSystem): Promise<void> {
+    const save: GenesisSave = { schema: 5, createdAt: this.clock(), spec: system.spec, system };
+    await mkdir(dirname(this.file), { recursive: true });
+    await writeFile(this.file, `${JSON.stringify(save, null, 2)}\n`, 'utf8');
+  }
+
   async createOnce(spec: GenesisSpec): Promise<CreateOnceResult> {
     const existing = await this.read();
     if (existing) return { system: existing.system, created: false, path: this.file };
@@ -68,6 +80,24 @@ export class GenesisStore {
     await mkdir(dirname(this.file), { recursive: true });
     await writeFile(this.file, `${JSON.stringify(save, null, 2)}\n`, 'utf8');
     return { system, created: true, path: this.file };
+  }
+
+  /**
+   * 把当前这一局归档到 `genesis/runs/<run>/`（{system,game}.json 一起搬）。
+   * 【再创世】时调用：旧地图从此只读、不再可进。
+   */
+  async archiveRun(run: number, gameFile: string): Promise<string> {
+    const dir = join(dirname(this.file), 'runs', String(run));
+    await mkdir(dir, { recursive: true });
+    for (const src of [this.file, gameFile]) {
+      const name = src.slice(src.lastIndexOf('\\') + 1).split('/').pop()!;
+      try {
+        await rename(src, join(dir, name));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    }
+    return dir;
   }
 
   /** 删档重开。返回是否真的删掉了文件。 */

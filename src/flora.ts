@@ -36,7 +36,10 @@ export type ResourceId =
   | 'methane_gas'
   | 'methane_liquid'
   | 'canned_ammonia'
-  | 'ash';
+  | 'fertilizer'
+  | 'ash'
+  /** 氘氚燃料（kg）：【再创世】要烧 100 kg；目前只是占位物品，还没有获取途径。 */
+  | 'deuterium';
 
 export const RESOURCE_LABELS: Record<ResourceId, string> = {
   biomass: '生物质',
@@ -56,7 +59,9 @@ export const RESOURCE_LABELS: Record<ResourceId, string> = {
   methane_gas: '甲烷气',
   methane_liquid: '液态甲烷',
   canned_ammonia: '罐装液氨',
+  fertilizer: '复合肥',
   ash: '草木灰',
+  deuterium: '氘氚燃料',
 };
 
 export interface Genes {
@@ -298,9 +303,13 @@ export interface PlantRecord {
   biomassKg: number;
   /** 0…100。归零即死。 */
   health: number;
+  /** 只是缺肥（养分因子 = 0）：不长，但不会应激、不会掉血。 */
+  starved?: boolean;
   /** 当前是否在耐受区间外（工具里报「它在应激」）。 */
   stress: boolean;
   harvests: number;
+  /** 已经留过一次种（一株一辈子只能留一次）。 */
+  bred?: boolean;
 }
 
 export interface ClimateSample {
@@ -577,7 +586,11 @@ export function newPlant(
 }
 
 /** 温度与水分对生长的综合系数（0…1）。不在耐受区间内直接 0。 */
-export function growthFactor(plant: PlantRecord, climate: ClimateSample): number {
+/**
+ * 只看温度/水分/人工气候这一层（0…1）。**不含养分**——养分不足只拖慢生长、减少收成，
+ * 不会让植株应激或掉血（见 advancePlant）。
+ */
+export function environmentFactor(plant: PlantRecord, climate: ClimateSample): number {
   const spec = SPECIES[plant.species];
   const t = plant.genes.tempOptC;
   if (climate.tempC < spec.tempMinC || climate.tempC > spec.tempMaxC) return 0;
@@ -585,10 +598,15 @@ export function growthFactor(plant: PlantRecord, climate: ClimateSample): number
   const tempFactor = clamp(1 - Math.abs(climate.tempC - t) / span, 0, 1);
   const waterFactor = clamp((climate.wetness - plant.genes.waterNeed) / 0.5, 0, 1);
   if (waterFactor <= 0) return 0;
-  const feed = nutrientFactor(plant, climate);
-  if (feed <= 0) return 0;
   const artificial = artificialClimateFactor(climate, plant.genes.climateTolerance ?? 0);
-  return clamp(tempFactor * waterFactor * feed * (0.6 + 0.4 * climate.fertility) * artificial, 0, 1);
+  return clamp(tempFactor * waterFactor * artificial, 0, 1);
+}
+
+export function growthFactor(plant: PlantRecord, climate: ClimateSample): number {
+  const env = environmentFactor(plant, climate);
+  if (env <= 0) return 0;
+  const feed = nutrientFactor(plant, climate);
+  return clamp(env * feed * (0.6 + 0.4 * climate.fertility), 0, 1);
 }
 
 export const ARTIFICIAL_DEADBAND_C = 15;
@@ -627,6 +645,7 @@ export function advancePlant(plant: PlantRecord, climate: ClimateSample, hours: 
   const spec = SPECIES[plant.species];
   const events: GrowthEvent[] = [];
   const factor = growthFactor(plant, climate);
+  const env = environmentFactor(plant, climate);
   const outside = climate.tempC < spec.tempMinC || climate.tempC > spec.tempMaxC || climate.wetness < plant.genes.waterNeed;
   const next: PlantRecord = { ...plant, ageHomeHours: plant.ageHomeHours + hours };
 
@@ -638,14 +657,16 @@ export function advancePlant(plant: PlantRecord, climate: ClimateSample, hours: 
       climate.wetness < plant.genes.waterNeed ? (plant.genes.waterNeed - climate.wetness) / 0.2 : 0,
     );
     health -= (2 + 5 * Math.min(2, severity)) * hours;
-  } else if (factor < 0.35) {
+  } else if (env < 0.35) {
     health -= 1.2 * hours;
   } else {
     health += 2 * hours;
   }
   health = clamp(health, 0, 100);
   next.health = Math.round(health * 10) / 10;
-  next.stress = outside || factor < 0.35;
+  // 应激只看温度/水分：缺肥只会让它长得慢、收得少，不会把苗拖死。
+  next.stress = outside || env < 0.35;
+  next.starved = !outside && env >= 0.35 && factor <= 0;
 
   if (next.health <= 0) {
     next.stage = 'withering';
@@ -682,6 +703,9 @@ export function advancePlant(plant: PlantRecord, climate: ClimateSample, hours: 
   if (next.stress && !plant.stress) {
     events.push({ type: 'stressed', text: `一株${spec.name}在应激——环境已经超出它的舒适范围。` });
   }
+  if (next.starved && !plant.starved) {
+    events.push({ type: 'stressed', text: `一株${spec.name}缺肥停长——它不会死，但这一茬的收成会打折。` });
+  }
   return { plant: next, events };
 }
 
@@ -694,7 +718,7 @@ export interface HarvestResult {
 }
 
 /** 收获：大型植物一次收完（株就没了），微生物收走 60% 的存量（保留接种量）。 */
-export function harvestPlant(plant: PlantRecord, fertility: number): HarvestResult {
+export function harvestPlant(plant: PlantRecord, fertility: number, feed = 1): HarvestResult {
   const spec = SPECIES[plant.species];
   if (plant.health <= 0) {
     return { plant: null, biomassKg: 0, resource: spec.resource, resourceKg: 0, text: '这一株已经死了，只能当生物质烧掉。' };
@@ -716,7 +740,9 @@ export function harvestPlant(plant: PlantRecord, fertility: number): HarvestResu
   if (plant.stage !== 'ripe') {
     return { plant, biomassKg: 0, resource: spec.resource, resourceKg: 0, text: `还没到结实，现在收只剩青苗。再等等。` };
   }
-  const kg = round2(spec.yieldKg * plant.genes.yield * (0.7 + 0.3 * clamp(fertility, 0, 1)));
+  const kg = round2(
+    spec.yieldKg * plant.genes.yield * (0.7 + 0.3 * clamp(fertility, 0, 1)) * (0.5 + 0.5 * clamp(feed, 0, 1)),
+  );
   return {
     plant: null,
     biomassKg: kg,

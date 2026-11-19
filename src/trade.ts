@@ -47,7 +47,7 @@ export const SELL_GOODS: SellGood[] = [
   { id: 'survey', name: '测绘数据', basePrice: 50, dailyLimit: 1, unit: '份' },
 ];
 
-export type BuyId = 'random_seed' | 'premium_seed' | 'giant_plant';
+export type BuyId = 'random_seed' | 'premium_seed' | 'giant_plant' | 'fertilizer';
 
 export interface BuyGood {
   id: BuyId;
@@ -79,6 +79,14 @@ export const BUY_GOODS: BuyGood[] = [
     note: '固定好基因，每天两袋。',
   },
   {
+    id: 'fertilizer',
+    name: '复合肥（氮磷钾 + 微量）',
+    currency: 'kj',
+    minCredits: 0,
+    dailyLimit: 30,
+    note: '按公斤卖，每买一公斤下一公斤更贵；现款现结，不赊账。',
+  },
+  {
     id: 'giant_plant',
     name: '大型植物',
     currency: 'credits',
@@ -88,6 +96,11 @@ export const BUY_GOODS: BuyGood[] = [
     note: '这条贸易线还没开通。',
   },
 ];
+
+/** 复合肥的阶梯价（kJ/kg）：第 n 公斤 = 600 + 250×(n−1)。 */
+export function fertilizerPriceKj(bought: number): number {
+  return 600 + 250 * bought;
+}
 
 /** 基础种子的阶梯价（kJ）：第 n 袋 = 1000 + 200×(n−1)。 */
 export function randomSeedPriceKj(purchased: number): number {

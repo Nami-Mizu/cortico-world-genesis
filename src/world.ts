@@ -12,6 +12,23 @@ import {
   bodyProbeId,
   bodyKeyOf,
   burnBiomass,
+  STAFF_PER_HOUSING,
+  startWonder,
+  WONDER_SPECS,
+  buyCharter,
+  setSpeed,
+  minutesPerHomeHour,
+  interiorComfortable,
+  structureInteriorC,
+  LODGE_COMFORT_C,
+  STAFF_COMFORT_C,
+  realMsPerHomeHour,
+  DEFAULT_SPEED,
+  dailyShopSpecies,
+  MAX_SPEED,
+  MIN_SPEED,
+  CHARTER_TECH_KJ,
+  CHARTER_TOURISM_CREDITS,
   buySeeds,
   deployCounter,
   deployMonitor,
@@ -78,6 +95,10 @@ import {
   WAIT_MAX_HOME_HOURS,
   buyCylinders,
   buyChart,
+  CHART_PRICE_CREDITS,
+  ENERGY_BLOCK_CREDITS,
+  ENERGY_BLOCK_KJ,
+  TUNGSTEN_PRICE_CREDITS,
   currentOrders,
   deliverOrder,
   habitatStatus,
@@ -106,11 +127,15 @@ import {
   armsInCycle,
   relinkArm,
   relinkDuty,
+  landingRefusal,
+  withIceWater,
   structurePowered,
   ARM_KG_PER_HOUR,
   ARM_RANGE_KM,
   ARM_MAX_PER_PLANET,
   round3,
+  POD_CAPACITY,
+  SHIP_POD_ID,
   TUNGSTEN_START,
   type GameState,
   type Location,
@@ -121,24 +146,29 @@ import { sparkPlugOutputKj } from './trade.ts';
 import { orderText } from './orders.ts';
 import { CHAPTER_TITLES, protocolStatus, protocolText } from './protocol.ts';
 import { NUTRIENT_NEEDS, SPECIES, SPECIES_IDS, RESOURCE_LABELS, bagWeightKg, speciesTempLabel, type SpeciesId } from './flora.ts';
-import { RESIDENTS_PER_LABOR } from './life.ts';
+import { CYLINDER_COST_CREDITS, RESIDENTS_PER_LABOR } from './life.ts';
 import { climateAt, siteKeyOf, type Site } from './site.ts';
-import { BUY_GOODS, SELL_GOODS, creditTier, dayIndexOf, sellPriceTable, shopOpen, shopWindowText, telescopeWindow } from './trade.ts';
-import { BUILD_SPECS, useCanned } from './game.ts';
+import { BUY_GOODS, PREMIUM_SEED_PRICE_CREDITS, SELL_GOODS, batteryCapacityKj, buyDailyLimitFor, creditTier, dayIndexOf, fertilizerPriceKj, randomSeedPriceKj, sellPriceTable, shopOpen, shopWindowText, telescopeWindow } from './trade.ts';
+import { BUILD_SPECS, applyFertilizer, buyFertilizer, deserializeGame, serializeGame, useCanned } from './game.ts';
+import { assertSave } from './schema.ts';
 import { GENERATOR_COOLDOWN_MS } from './power.ts';
 import { GameStore } from './game-store.ts';
 import { GENESIS_DEFAULTS, GENESIS_LIMITS, validateSpec, type GenesisSpec, type StarSystem, type TerrestrialSurface } from './model.ts';
-import type { GenesisBody, GenesisDraft, GenesisPanelProtocol, GenesisPanelState, GenesisPlanetRow, GenesisProtocolPanel, GenesisSurfaceMap } from './panel-types.ts';
+import type { GenesisBody, GenesisDraft, GenesisPanelProtocol, GenesisPanelState, GenesisPlanetRow, GenesisProtocolPanel, GenesisShopOrder, GenesisShopPanel, GenesisShopRow, GenesisSurfaceMap } from './panel-types.ts';
 import { GenesisStore } from './store.ts';
 import { stargazeText } from './stargaze.ts';
-import { deriveGenesisShape, describeGenesisMenu, GENESIS_SHAPE } from './system.ts';
+import { createSystem, deriveGenesisShape, describeGenesisMenu, GENESIS_SHAPE } from './system.ts';
+import { hashSeed } from './rng.ts';
 import { planetVisibility, terrainPatch, terrainPatchText, type TerrainBody } from './terrain.ts';
 import { targetBiomeFor, terraCellsFor, type TerraMap } from './terra.ts';
 import { guideText, guideTopics } from './guide.ts';
 import { infoText } from './info.ts';
-import { applyAlgae, breedAt, PLANTER_CLIMATE, PLANTER_SUBSTRATE } from './game.ts';
+import { toolsSearch } from './tools-doc.ts';
+import { ProfileStore, consumeRecreate, exportProfile, recreateBlockers } from './profile.ts';
+import { applyAlgae, breedAt, greenhouseClimate, PLANTER_CLIMATE, PLANTER_SUBSTRATE, PUMP_MAX_WETNESS } from './game.ts';
 import { inspectPlantText } from './inspect.ts';
 import type { ClimateSample } from './flora.ts';
+import { ANIMAL_SPECIES, animalSpecies, animalsNear, setTerritory, territoryFor, PATROL_RADIUS_DEFAULT_KM } from './animal.ts';
 
 const ENV_PROMPT_FILE = fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url));
 
@@ -302,9 +332,10 @@ const BUY_PARAMETERS = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    kind: { type: 'string', enum: ['random', 'premium', 'giant_plant', 'cylinder', 'energy', 'tungsten', 'chart'], description: 'random = 随机基因种子（花 kJ）；premium = 高级种子（花信用点）；giant_plant = 大型植物（还没开通）；cylinder = 高强度钢瓶（花信用点，多买有折扣）；energy = 能量块（5,000 kJ，120 信用点，直接进电池不损耗）；tungsten = 钨 1 份（700 信用点）；chart = 星图（300 信用点，每天一张）：画一颗你还没见过的天体，拿到就不用等观星窗口。' },
+    kind: { type: 'string', enum: ['random', 'premium', 'giant_plant', 'broadcast_tourism', 'broadcast_tech', 'cylinder', 'energy', 'tungsten', 'chart', 'fertilizer'], description: 'fertilizer = 复合肥（按公斤，花 kJ，每买一公斤下一公斤更贵，一天 30 kg）；random = 随机基因种子（花 kJ）；premium = 高级种子（花信用点）；giant_plant = 大型植物（还没开通）；cylinder = 高强度钢瓶（花信用点，多买有折扣）；energy = 能量块（5,000 kJ，120 信用点，直接进电池不损耗）；tungsten = 钨 1 份（700 信用点）；chart = 星图（300 信用点，每天一张）：画一颗你还没见过的天体，拿到就不用等观星窗口。' },
     species: { type: 'string', enum: [...SPECIES_IDS], description: '要买哪种种子（kind=random/premium 时用）。' },
     count: { type: 'number', minimum: 1, maximum: 100, description: 'kind=cylinder 时买几个。' },
+    kg: { type: 'number', minimum: 0.5, maximum: 30, description: 'kind=fertilizer 时买多少公斤（默认 5）。' },
   },
   required: ['kind'],
 } as const;
@@ -384,6 +415,27 @@ const REMOVE_PARAMETERS = {
   required: ['plant'],
 } as const;
 
+const TERRITORY_PARAMETERS = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['species'],
+  properties: {
+    species: { type: 'string', enum: ['dusk_deer', 'ash_hare', 'ice_goat', 'marsh_crab'], description: '初级消费者的 id。' },
+    latDeg: { type: 'number', description: '领地中心纬度。不传就用你脚下。' },
+    lonDeg: { type: 'number', description: '领地中心经度。不传就用你脚下。' },
+    radiusKm: { type: 'number', description: '领地半径（1–10 km，默认 3）。' },
+  },
+};
+
+const TOOLS_PARAMETERS = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    query: { type: 'string', description: '可选：工具名、中文名或关键词（比如「种地」「机械臂」「wait」）。不传给整张表。' },
+  },
+  required: [],
+} as const;
+
 const BUILD_PARAMETERS = {
   type: 'object',
   additionalProperties: false,
@@ -404,7 +456,7 @@ const INSTALL_PARAMETERS = {
         'monitor', 'counter', 'sail', 'greenhouse', 'biome_changer', 'cooler', 'heater', 'realism',
         'pump', 'warehouse', 'drone_cluster', 'rocket', 'kiln', 'purifier', 'sealer', 'atmo_extractor',
         'habitat', 'mutation_room', 'cold_store', 'inert_room', 'setpoint', 'miner', 'rectifier', 'terminal',
-        'storage_terminal', 'arm', 'planter', 'duty',
+        'storage_terminal', 'arm', 'planter', 'duty', 'fence', 'scarecrow', 'feed_trough',
         'carrier', 'wind', 'fire', 'converter',
       ],
       description:
@@ -492,7 +544,7 @@ const STORE_PARAMETERS = {
   properties: {
     action: {
       type: 'string',
-      enum: ['deposit', 'withdraw', 'demolish', 'list', 'dry', 'grid', 'grid_in', 'grid_out', 'bags', 'take', 'use'],
+      enum: ['deposit', 'withdraw', 'demolish', 'list', 'dry', 'grid', 'grid_in', 'grid_out', 'bags', 'take', 'use', 'fertilize'],
       description:
         '存 / 取 / 拆 / 只看 / 烘干 / 看本地电网 / 从电网搬电进电池 / 把电池的电送进电网 / 看终端的种子缓冲 / 从终端缓冲取一袋种子 / 用掉罐装物资（目前只有液氨，施到脚下站点补氮）。',
     },
@@ -652,7 +704,7 @@ export const GENESIS_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   },
   {
     name: 'genesis_recipes',
-    description: '一张表看全：所有建筑/设备的造价、耗时、维护费、容量，以及每种作物需要什么养分、卖什么价。省得你猜。',
+    description: '一张表看全升级与维修：每一项的造价、耗时、需要的材料（含你现有多少）、还差什么、下一级有什么效果。建筑与作物改用 genesis_info 单条查。',
     tags: ['read'],
     parameters: RECIPES_PARAMETERS,
   },
@@ -913,6 +965,51 @@ export const GENESIS_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
     tags: ['write'],
     parameters: REMOVE_PARAMETERS,
   },
+  {
+    name: 'genesis_speed',
+    description:
+      '调时间倍速（1–200 倍）：不影响历法与产量，只影响「现实时间过去多久算一个母星时」。调高后，等待、施工、旅行、作物生长在现实时间里都会变快。',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        speed: { type: 'integer', minimum: 1, maximum: 200, description: '目标倍速，1–200。' },
+      },
+      required: ['speed'],
+    },
+    tags: ['read'],
+  },
+  {
+    name: 'genesis_wonder',
+    description: '开一座奇观（一次只能建一座，建完才能开下一座；奇观线独立于普通施工）。id：sky_ring 天穹环 / under_ice_eye 冰下之眼（旅游），silicon_valley 硅谷 / orbital_mirror 轨道镜阵（技术）。',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        id: { type: 'string', enum: ['sky_ring', 'under_ice_eye', 'silicon_valley', 'orbital_mirror', 's2_engine'], description: '奇观 id。' },
+      },
+      required: ['id'],
+    },
+    tags: ['write'],
+  },
+  {
+    name: 'genesis_tools',
+    description:
+      '工具总表：全部 40 个工具各一行——做什么、关键参数、一句提醒。' +
+      '不带 query 给整张表；带 query 就只挑和它有关的几行（工具名、中文名、关键词都行）。' +
+      '忘了哪个工具叫什么、参数怎么填的时候查它。',
+    tags: ['read'],
+    parameters: TOOLS_PARAMETERS,
+  },
+  {
+    name: 'genesis_territory',
+    description:
+      '给一种初级消费者划一块领地（默认半径 3 km，上限 10）：它们会在领地内巡逻、赶走别的种类，但走得更快也更饿。' +
+      '同种在这颗行星上只有一块，再划就覆盖。次级消费者（含猫科）不能划领地——它们会把猎物赶光。' +
+      '不传经纬度就用你脚下。',
+    tags: ['write'],
+    parameters: TERRITORY_PARAMETERS,
+  },
 ];
 
 export interface GenesisWorldOptions {
@@ -923,6 +1020,11 @@ export interface GenesisWorldOptions {
   now?: () => number;
 }
 
+/** 1 倍速下「一个母星时 = 多少现实分钟」，滑杆拖动时用它换算。 */
+function msPerPlanetHourBase(game: GameState): number {
+  return game.msPerPlanetHour / 60_000;
+}
+
 export class GenesisWorld implements World {
   readonly id = 'genesis';
 
@@ -930,6 +1032,8 @@ export class GenesisWorld implements World {
   private system: StarSystem | null = null;
   private game: GameState | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  /** 读档失败的原因；面板据此区分「没创世」与「存档坏了」。 */
+  private loadError: string | null = null;
   /** 面板点击期间为 true：事件只攒不推，窗口结束再合并成一条。 */
   private quiet = false;
   private merged: Array<{ type: string; texts: string[] }> = [];
@@ -937,11 +1041,13 @@ export class GenesisWorld implements World {
 
   private readonly store: GenesisStore;
   private readonly games: GameStore;
+  private readonly profiles: ProfileStore;
   private readonly now: () => number;
 
   constructor(private readonly opts: GenesisWorldOptions) {
     this.store = new GenesisStore({ dataDir: opts.dataDir });
     this.games = new GameStore({ dataDir: opts.dataDir });
+    this.profiles = new ProfileStore({ dataDir: opts.dataDir });
     this.now = opts.now ?? Date.now;
   }
 
@@ -1006,17 +1112,21 @@ export class GenesisWorld implements World {
       this.dutyTool(),
       this.resetTool(),
       this.infoTool(),
+    this.wonderTool(),
+    this.speedTool(),
       this.transplantTool(),
       this.removeTool(),
       this.breedTool(),
       this.algaeTool(),
       this.inspectTool(),
+      this.toolsTool(),
+      this.territoryTool(),
     ];
   }
 
   private breedTool(): ToolDef {
     return {
-      ...GENESIS_TOOL_DECLS[37]!,
+      ...GENESIS_TOOL_DECLS[36]!,
       handler: async (args) => {
         const ready = await this.readyState();
         if ('error' in ready) return { text: ready.error, failed: true };
@@ -1041,7 +1151,7 @@ export class GenesisWorld implements World {
 
   private algaeTool(): ToolDef {
     return {
-      ...GENESIS_TOOL_DECLS[38]!,
+      ...GENESIS_TOOL_DECLS[37]!,
       handler: async (args) => {
         const ready = await this.readyState();
         if ('error' in ready) return { text: ready.error, failed: true };
@@ -1065,7 +1175,7 @@ export class GenesisWorld implements World {
 
   private inspectTool(): ToolDef {
     return {
-      ...GENESIS_TOOL_DECLS[39]!,
+      ...GENESIS_TOOL_DECLS[38]!,
       handler: async (args) => {
         const ready = await this.readyState();
         if ('error' in ready) return { text: ready.error, failed: true };
@@ -1086,7 +1196,7 @@ export class GenesisWorld implements World {
 
   webUi(): WorldWebUiDecl {
     return {
-      label: '创世记',
+      label: '栖星 · 创世记',
       config: [GENESIS_CONFIG_GROUP],
       badges: [
         {
@@ -1097,10 +1207,40 @@ export class GenesisWorld implements World {
       ],
       panels: [
         {
-          id: 'system',
-          title: '这一颗星球',
-          description: '开局在这里创世：种子、恒星质量、行星数、卫星上限，还有恒星与母星的名字。写进存档后锁定，删档才能重选。',
-          getMethods: ['state', 'create', 'reset', 'map', 'press', 'monitor', 'sell', 'site', 'plant', 'harvest', 'transplant', 'remove', 'breed', 'algae', 'inspect', 'burn', 'build', 'install', 'store', 'storeDo', 'look', 'veins', 'survey', 'wait', 'order', 'cylinder', 'chart', 'mutate', 'wake', 'preview'],
+          id: 'overview',
+          title: '概况',
+          description: '一屏看清你在哪、还剩多少、下一步该干什么。只读；动作都在各自页签里做。',
+          getMethods: ['state'],
+        },
+        {
+          id: 'surface',
+          title: '地表',
+          description: '地图、看附近、走一段、等一会、探矿脉、测绘、观星。跨星航行在「工业」页签。',
+          getMethods: ['state', 'map', 'look', 'move', 'wait', 'terrain', 'veins', 'survey', 'stargaze'],
+        },
+        {
+          id: 'farm',
+          title: '农场',
+          description: '站点、作物、种子、温室、种植盆、围栏与喂食槽。建站要先走到有地的地方。',
+          getMethods: ['state', 'site', 'plant', 'harvest', 'inspect', 'breed', 'transplant', 'remove', 'fertilize', 'install', 'store', 'flora'],
+        },
+        {
+          id: 'industry',
+          title: '工业',
+          description: '电与设备、已建建筑、建造、跨星航行、奇观。',
+          getMethods: ['state', 'press', 'monitor', 'install', 'move', 'wonder', 'store', 'storeDo', 'upgrade', 'build'],
+        },
+        {
+          id: 'life',
+          title: '生命与人事',
+          description: '人口、居所、协议还差几条、叫醒与变种。',
+          getMethods: ['state', 'wake', 'mutate'],
+        },
+        {
+          id: 'save',
+          title: '存档',
+          description: '新建一局（创世）、导入、导出、删除。放在最后，平时用不到。',
+          getMethods: ['state', 'create', 'preview', 'export', 'import', 'reset'],
         },
         {
           id: 'upgrade',
@@ -1115,10 +1255,16 @@ export class GenesisWorld implements World {
           getMethods: ['state', 'wake'],
         },
         {
+          id: 'shop',
+          title: '商店',
+          description: '买卖都在这儿：卖货、买种子/钢瓶/星图/钨/能量块/复合肥、交基因订单。商人只在营业时间来，关张时按钮是灰的。',
+          getMethods: ['state', 'buy', 'sell', 'order'],
+        },
+        {
           id: 'guide',
           title: '手册',
           description: '和 genesis_guide 同一份教程，翻着看比叫模型念一遍省事。正文在 src/guide/*.md，改文案不用碰代码。',
-          getMethods: ['topics', 'read', 'search'],
+          getMethods: ['topics', 'read', 'search', 'tools'],
         },
       ],
       invoke: async (panel, method, args) => this.invoke(panel, method, args),
@@ -1141,11 +1287,14 @@ export class GenesisWorld implements World {
 
   async start(host: WorldHost): Promise<void> {
     this.host = host;
+    this.loadError = null;
     try {
       const save = await this.store.read();
       this.system = save?.system ?? null;
       this.game = this.system ? await this.games.read(this.system) : null;
-    } catch {
+    } catch (error) {
+      // 不要静默吞掉：面板上要能看出「是没创世，还是存档坏了」。
+      this.loadError = error instanceof Error ? error.message : String(error);
       this.system = null;
       this.game = null;
     }
@@ -1289,8 +1438,28 @@ export class GenesisWorld implements World {
           return this.protocolPanelState();
         case 'wake':
           return this.wakeFromPanel(args[0]);
+        case 'recreate':
+          return this.recreateFromPanel(args[0], args[1]);
         default:
           throw new Error(`「协议」面板没有方法：${method}`);
+      }
+    }
+    if (panel === 'shop') {
+      return this.shopAction(method, args);
+    }
+    if (method === 'speed') {
+      return this.speedFromPanel(args[0]);
+    }
+    // 顶栏要的整份状态：升级/协议/商店/手册四个页签的载荷不是 state，靠这个补顶栏。
+    if (method === 'header') {
+      return this.panelState();
+    }
+    if (panel === 'overview') {
+      switch (method) {
+        case 'state':
+          return this.panelState();
+        default:
+          throw new Error(`「概况」面板没有方法：${method}`);
       }
     }
     if (panel === 'guide') {
@@ -1307,11 +1476,17 @@ export class GenesisWorld implements World {
           const query = typeof args[0] === 'string' ? args[0] : '';
           return { text: infoText(query) };
         }
+        case 'tools': {
+          const query = typeof args[0] === 'string' && args[0].trim() !== '' ? args[0].trim() : undefined;
+          return { text: toolsSearch(query) };
+        }
         default:
           throw new Error(`「手册」面板没有方法：${method}`);
       }
     }
-    if (panel !== 'system') throw new Error(`未知面板：${panel}`);
+    if (panel !== 'save' && panel !== 'surface' && panel !== 'farm' && panel !== 'industry' && panel !== 'life') {
+      throw new Error(`未知面板：${panel}`);
+    }
     switch (method) {
       case 'state':
         return this.panelState();
@@ -1321,6 +1496,10 @@ export class GenesisWorld implements World {
         return this.previewShape(args[0]);
       case 'reset':
         return this.resetFromPanel(args[0]);
+      case 'export':
+        return this.exportFromPanel();
+      case 'import':
+        return this.importFromPanel(args[0]);
       case 'map':
         return this.surfaceMap(args[0]);
       case 'press':
@@ -1371,8 +1550,16 @@ export class GenesisWorld implements World {
         return this.cylinderFromPanel(args[0]);
       case 'chart':
         return this.chartFromPanel();
+      case 'fertilizer':
+        return this.fertilizerFromPanel(args[0]);
+      case 'fertilize':
+        return this.fertilizeFromPanel(args[0], args[1]);
       case 'survey':
         return this.surveyFromPanel();
+      case 'terrain':
+        return this.terrainFromPanel(args[0], args[1], args[2]);
+      case 'stargaze':
+        return this.stargazeFromPanel();
       case 'mutate':
         return this.mutateFromPanel(args[0]);
       case 'wake':
@@ -1382,15 +1569,63 @@ export class GenesisWorld implements World {
     }
   }
 
+  /** 面板「买复合肥」：和 genesis_buy { kind: "fertilizer" } 同一条路。 */
+  private async fertilizerFromPanel(rawKg: unknown): Promise<{ text: string; state: GenesisPanelState }> {
+    await this.sync();
+    if (!this.game) throw new Error('还没有创世。先 genesis_create。');
+    const kg = typeof rawKg === 'number' && rawKg > 0 ? rawKg : 5;
+    const bought = buyFertilizer(this.game, kg, this.now());
+    this.game = bought.state;
+    await this.saveGame();
+    return { text: bought.text, state: await this.panelState() };
+  }
+
+  /** 面板「撒肥」：把背包里的复合肥撒到脚下这座站点。 */
+  private async fertilizeFromPanel(rawKg: unknown, rawSite: unknown): Promise<{ text: string; state: GenesisPanelState }> {
+    await this.sync();
+    const system = await this.readSystem();
+    if (!system || !this.game) throw new Error('还没有创世。');
+    const siteKey = this.resolveSite(this.game, rawSite);
+    const kg = typeof rawKg === 'number' && rawKg > 0 ? rawKg : 1;
+    const put = applyFertilizer(system, this.game, siteKey, kg);
+    this.game = put.state;
+    await this.saveGame();
+    return { text: put.text, state: await this.panelState() };
+  }
+
   /** 面板「装/建」：走同一条 genesis_install，人类和模型用一套规则。 */
   private async installFromPanel(input: unknown): Promise<{ text: string; state: GenesisPanelState }> {
     await this.sync();
-    const args = (input ?? {}) as { id?: unknown; serves?: unknown };
+    // 面板传什么就原样交给工具：以前只转 id / serves，温室滑杆的 tempC、
+    // 机械臂的 inputs、值班终端的 habitat 全被扔掉，于是「拖了滑杆又变回自动」。
+    const args = { ...((input && typeof input === 'object' ? input : {}) as Record<string, unknown>) };
+    if (typeof args.tempC === 'string') {
+      const value = Number(args.tempC);
+      if (Number.isFinite(value)) args.tempC = value;
+      else delete args.tempC;
+    }
     const tool = this.installTool();
-    const result = await tool.handler({ id: args.id, serves: args.serves } as Record<string, unknown>, {} as never);
+    const result = await tool.handler(args, {} as never);
     const text = typeof result === 'string' ? result : result.text;
     if (typeof result !== 'string' && result.failed) throw new Error(text);
     return { text, state: await this.panelState() };
+  }
+
+  /** 在看附近的文字后面追一行「附近动物」（3.0.0）。 */
+  private withWildlife(system: StarSystem, text: string): string {
+    if (!this.game || !this.game.location) return text;
+    const loc = this.game.location;
+    const found = animalsNear(system, this.game, loc.planetIndex, loc.latDeg, loc.lonDeg, 300);
+    const total = (this.game.animals ?? []).filter((animal) => animal.planetIndex === loc.planetIndex).length;
+    if (total === 0) return text;
+    const tally = new Map<string, number>();
+    for (const entry of found) tally.set(entry.species.name, (tally.get(entry.species.name) ?? 0) + 1);
+    const list = [...tally.entries()].map(([name, count]) => name + '×' + count).join('、');
+    const nearest = found[0];
+    const tail = nearest
+      ? '，最近的' + nearest.species.name + '在' + Math.round(nearest.km) + ' km'
+      : '';
+    return text + '\n附近动物：这颗行星上共' + total + '只' + (list ? '（300 km 内 ' + list + tail + '）' : '') + '。';
   }
 
   /** 面板「看附近」：与 genesis_look 同一段文字，人类点一下就能读。 */
@@ -1399,7 +1634,7 @@ export class GenesisWorld implements World {
     const system = await this.readSystem();
     if (!system || !this.game) throw new Error('还没有创世。');
     try {
-      return { text: lookAround(system, this.game, this.now()).text };
+      return { text: this.withWildlife(system, lookAround(system, this.game, this.now()).text) };
     } catch (error) {
       return { text: errorText(error) };
     }
@@ -1433,6 +1668,191 @@ export class GenesisWorld implements World {
     return { text: waited.reason, state: await this.panelState() };
   }
 
+
+  /** 「商店」页签：开没开张、货架、收购价、订单。 */
+  private shopPayload(): GenesisShopPanel {
+    const game = this.game!;
+    const level = game.upgrades.telescope;
+    const now = this.now();
+    const hours = nowPlanetHours(game, now);
+    const open = shopOpen(hours, level);
+    const day = dayIndexOf(hours);
+    const soldToday = (id: string): number => (game.daily.day === day ? (game.daily.sold['sell:' + id] ?? 0) : 0);
+    const boughtToday = (key: string): number => (game.daily.day === day ? (game.daily.bought[key] ?? 0) : 0);
+    const heldOf = (id: string): number => {
+      let sum = game.inventory[id] ?? 0;
+      for (const store of Object.values(game.siteStores)) sum += store[id] ?? 0;
+      for (const container of Object.values(game.stores)) sum += container[id] ?? 0;
+      return round3(sum);
+    };
+    const sellables: GenesisShopRow[] = sellPriceTable(day, level).map((row) => {
+      const left = Number.isFinite(row.limit) ? Math.max(0, Math.floor(row.limit - soldToday(row.id))) : Number.POSITIVE_INFINITY;
+      return {
+        id: row.id,
+        name: row.name,
+        priceLabel: row.price.toLocaleString('en-US') + ' 信用点/' + row.unit,
+        limitLabel: Number.isFinite(left) ? '今天还能卖 ' + left + ' ' + row.unit : '不限量',
+        held: heldOf(row.id),
+      };
+    });
+    const premium = BUY_GOODS.find((good) => good.id === 'premium_seed')!;
+    const premiumLeft = Math.max(0, buyDailyLimitFor(premium, level) - boughtToday('buy:premium_seed'));
+    const buyables: GenesisShopRow[] = [
+      {
+        id: 'random_seed',
+        name: '随机基因种子（5 粒）· 今日货：' + SPECIES[dailyShopSpecies(game, this.now())].name,
+        priceLabel: randomSeedPriceKj(game.seedsPurchased).toLocaleString('en-US') + ' kJ',
+        limitLabel: '不限量',
+        species: dailyShopSpecies(game, this.now()),
+        note: '每买一袋，下一袋贵 200 kJ。今天的货明天会换。',
+      },
+      {
+        id: 'premium_seed',
+        name: '高级种子（耐寒·高产，5 粒）· 今日货：' + SPECIES[dailyShopSpecies(game, this.now())].name,
+        species: dailyShopSpecies(game, this.now()),
+        priceLabel: PREMIUM_SEED_PRICE_CREDITS.toLocaleString('en-US') + ' 信用点',
+        limitLabel: '今天还能买 ' + premiumLeft + ' 袋',
+        note: '要余额 500 信用点。',
+      },
+      {
+        id: 'fertilizer',
+        name: '复合肥（按公斤）',
+        priceLabel: fertilizerPriceKj(game.fertilizerBought ?? 0).toLocaleString('en-US') + ' kJ/kg',
+        limitLabel: '今天还能买 ' + Math.max(0, 30 - boughtToday('buy:fertilizer')) + ' kg',
+        note: '每买一公斤，下一公斤贵 250 kJ。',
+      },
+      {
+        id: 'broadcast_tourism',
+        name: '星际广播 · 旅游星系',
+        priceLabel: CHARTER_TOURISM_CREDITS.toLocaleString('en-US') + ' 信用点',
+        limitLabel: game.charter ? (game.charter === 'tourism' ? '已选择旅游星系' : '已售罄（选了技术星系）') : '一局只能买一张',
+        note: '买了才能造观光塔台与访客驿站；技术星系的广播会永久锁死。',
+      },
+      {
+        id: 'broadcast_tech',
+        name: '星际广播 · 技术星系',
+        priceLabel: CHARTER_TECH_KJ.toLocaleString('en-US') + ' kJ',
+        limitLabel: game.charter ? (game.charter === 'tech' ? '已选择技术星系' : '已售罄（选了旅游星系）') : '一局只能买一张',
+        note: '买了才能造招募站、员工公寓与晶圆厂；旅游星系的广播会永久锁死。',
+      },
+      {
+        id: 'cylinder',
+        name: '高强度钢瓶',
+        priceLabel: CYLINDER_COST_CREDITS.toLocaleString('en-US') + ' 信用点/个',
+        limitLabel: '不限量',
+        note: '装液氨、氧气用；用完返九成。',
+      },
+      {
+        id: 'chart',
+        name: '星图（一颗天体）',
+        priceLabel: CHART_PRICE_CREDITS.toLocaleString('en-US') + ' 信用点',
+        limitLabel: '今天还能买 ' + Math.max(0, 1 - boughtToday('buy:chart')) + ' 张',
+        note: '拿到就不用等观星窗口。',
+      },
+      {
+        id: 'tungsten',
+        name: '钨（1 份 = 1 kg）',
+        priceLabel: TUNGSTEN_PRICE_CREDITS.toLocaleString('en-US') + ' 信用点/份',
+        limitLabel: '不限量',
+      },
+      {
+        id: 'energy',
+        name: '能量块（' + ENERGY_BLOCK_KJ.toLocaleString('en-US') + ' kJ）',
+        priceLabel: ENERGY_BLOCK_CREDITS.toLocaleString('en-US') + ' 信用点',
+        limitLabel: '不限量',
+      },
+    ];
+    const orders: GenesisShopOrder[] = currentOrders(game, now).map((order) => ({
+      id: order.id,
+      label: orderText(order, SPECIES[order.species].name),
+      note: '交货用「交货」按钮。',
+    }));
+    return {
+      open,
+      window: shopWindowText(hours, level),
+      nextOpenHours: open ? 0 : Math.round(((12 - hours + 24) % 24) * 10) / 10,
+      level,
+      credits: game.credits,
+      energyKj: game.energyKj,
+      capacityKj: batteryCapacityKj(game.upgrades.battery),
+      tungsten: game.tungsten,
+      buyables,
+      sellables,
+      orders,
+      closedNote: open ? undefined : '商人不在：按钮先灰着，等开张了再点。',
+    };
+  }
+
+  /** 「商店」页签的方法：state / buy / sell / order。 */
+  private async shopAction(method: string, args: unknown[]): Promise<unknown> {
+    await this.sync();
+    if (!this.game) throw new Error('还没有创世。');
+    if (method === 'state') return this.shopPayload();
+    const input = (args[0] ?? {}) as Record<string, unknown>;
+    const now = this.now();
+    if (method === 'order') {
+      const delivered = deliverOrder(this.game, String(input.id ?? ''), now);
+      this.game = delivered.state;
+      await this.saveGame();
+      return { text: delivered.text, state: this.shopPayload() };
+    }
+    if (method === 'sell') {
+      const sold = sellToMerchant(this.game, String(input.id ?? '') as never, Number(input.amount ?? 1), now);
+      this.game = sold.state;
+      await this.saveGame();
+      return { text: sold.text, state: this.shopPayload() };
+    }
+    if (method === 'buy') {
+      const kind = String(input.kind ?? '');
+      if (kind === 'random_seed' || kind === 'premium_seed') {
+        const species = String(
+          input.species ?? dailyShopSpecies(this.game!, now),
+        ) as SpeciesId;
+        if (!SPECIES[species]) throw new Error('没有这种植物：' + species + '。');
+        const bought = buySeeds(this.game, kind === 'random_seed' ? 'random' : 'premium', species, now);
+        this.game = bought.state;
+        await this.saveGame();
+        return { text: bought.text, state: this.shopPayload() };
+      }
+      if (kind === 'fertilizer') {
+        const kg = typeof input.kg === 'number' && input.kg > 0 ? input.kg : 5;
+        const bought = buyFertilizer(this.game, kg, now);
+        this.game = bought.state;
+        await this.saveGame();
+        return { text: bought.text, state: this.shopPayload() };
+      }
+      if (kind === 'cylinder') {
+        const count = Math.max(1, Math.floor(Number(input.count ?? 1)));
+        const bought = buyCylinders(this.game, count, now);
+        this.game = bought.state;
+        await this.saveGame();
+        return { text: bought.text, state: this.shopPayload() };
+      }
+      if (kind === 'chart') {
+        const system = await this.readSystem();
+        if (!system) throw new Error('还没有创世。');
+        const bought = buyChart(system, this.game, now);
+        this.game = bought.state;
+        await this.saveGame();
+        return { text: bought.text, state: this.shopPayload() };
+      }
+      if (kind === 'broadcast_tourism' || kind === 'broadcast_tech') {
+        const bought = buyCharter(this.game, kind === 'broadcast_tourism' ? 'tourism' : 'tech', now);
+        this.game = bought.state;
+        await this.saveGame();
+        return { text: bought.text, state: this.shopPayload() };
+      }
+      if (kind === 'tungsten' || kind === 'energy') {
+        const bought = buyMerchandise(this.game, kind, now);
+        this.game = bought.state;
+        await this.saveGame();
+        return { text: bought.text, state: this.shopPayload() };
+      }
+      throw new Error('商店里没有这种东西：' + (kind || '(空)') + '。');
+    }
+    throw new Error('「商店」面板没有方法：' + method);
+  }
+
   /** 面板「交货」：把一张订单交掉，然后刷新面板。 */
   private async orderFromPanel(input: unknown): Promise<{ text: string; state: GenesisPanelState }> {
     await this.sync();
@@ -1464,6 +1884,29 @@ export class GenesisWorld implements World {
     this.game = bought.state;
     await this.saveGame();
     return { text: bought.text, state: await this.panelState() };
+  }
+
+  /** 面板「测地形」：和 genesis_terrain 同一条路，参数缺省就用脚下。 */
+  private async terrainFromPanel(rawPlanet: unknown, rawLat: unknown, rawLon: unknown): Promise<{ text: string }> {
+    await this.sync();
+    const system = await this.readSystem();
+    if (!system || !this.game) throw new Error('还没有创世。');
+    const args: Record<string, unknown> = {};
+    if (typeof rawPlanet === 'number') args.planetIndex = rawPlanet;
+    if (typeof rawLat === 'number') args.lat = rawLat;
+    if (typeof rawLon === 'number') args.lon = rawLon;
+    const handler = this.tools().find((tool) => tool.name === 'genesis_terrain')!.handler;
+    const outcome = await handler(args, {} as never);
+    return { text: typeof outcome === 'string' ? outcome : outcome.text };
+  }
+
+  /** 面板「观星」：和 genesis_stargaze 同一条路。 */
+  private async stargazeFromPanel(): Promise<{ text: string }> {
+    await this.sync();
+    if (!this.game) throw new Error('还没有创世。');
+    const handler = this.tools().find((tool) => tool.name === 'genesis_stargaze')!.handler;
+    const outcome = await handler({}, {} as never);
+    return { text: typeof outcome === 'string' ? outcome : outcome.text };
   }
 
   /** 面板「测绘一圈」：和 genesis_survey 同一条规则（每行星每群系只认第一次）。 */
@@ -1501,6 +1944,67 @@ export class GenesisWorld implements World {
     this.game = woke.state;
     await this.saveGame();
     return { text: woke.text, state: await this.panelState() };
+  }
+
+
+  /** 面板【再创世】：带着档案去下一张地图。旧地图归档后作废。 */
+  private async recreateFromPanel(rawSeed: unknown, rawMass: unknown): Promise<{ text: string }> {
+    await this.sync();
+    const system = await this.readSystem();
+    if (!system || !this.game) throw new Error('还没有创世。');
+    const game = this.game;
+    const blockers = recreateBlockers(game);
+    if (blockers.length > 0) throw new Error(blockers.join('\n'));
+
+    const seed = normalizeSeedValue(rawSeed);
+    const raw = typeof rawMass === 'number' ? rawMass : Number(rawMass);
+    const starMass = Math.min(
+      GENESIS_LIMITS.starMass.max,
+      Math.max(GENESIS_LIMITS.starMass.min, Number.isFinite(raw) ? Math.round(raw * 100) / 100 : GENESIS_DEFAULTS.starMass),
+    );
+    const spec: GenesisSpec = { seed, starMass, ...deriveGenesisShape(seed) };
+    const next = createSystem(spec);
+    const refusal = landingRefusal(next);
+    if (refusal) throw new Error(refusal);
+
+    const after = consumeRecreate(game);
+    const runs = ((await this.profiles.read())?.runs ?? 1) + 1;
+    const previousStar = game.names.star;
+    const profile = exportProfile(after, { runs, lastStar: previousStar, nowMs: this.now() });
+    const { starName, homeName } = autoNames(seed, runs);
+
+    await this.store.archiveRun(runs - 1, this.games.file);
+    const created = await this.store.createOnce(spec);
+    const fresh = startGame(
+      created.system,
+      {
+        seed,
+        starName,
+        homeName,
+        carry: {
+          credits: after.credits,
+          tungsten: after.tungsten,
+          energyKj: after.energyKj,
+          inventory: after.inventory,
+          upgrades: after.upgrades,
+          seedBags: after.seedBags,
+          people: profile.people,
+          samples: after.samples,
+        },
+      },
+      this.now(),
+    );
+    this.system = created.system;
+    this.game = fresh;
+    await this.saveGame();
+    await this.profiles.write(profile);
+    await this.push(
+      'genesis.recreated',
+      `点火。『${previousStar}』留在身后，旧地图已归档；这一船 ${profile.people} 个人重新回到休眠舱，飞向『${starName}』。`,
+    );
+    return {
+      text: `再创世完成：点火、离轨，飞向『${starName}』，落脚点叫『${homeName}』。旧地图『${previousStar}』已归档作废。带了 ${profile.people} 个人、${Math.round(profile.energyKj).toLocaleString('en-US')} kJ、${profile.tungsten} 份钨过来——先 genesis_look 看看脚下。`,
+    };
   }
 
   /** 面板「去某处」：按经纬度发起地表移动，返回移动中的状态。 */
@@ -1639,8 +2143,29 @@ export class GenesisWorld implements World {
       game.calendar.planetDaysPerYear * 24,
       planet.obliquityDeg,
     );
+    const outdoor = withIceWater(site, climate);
+    // 温室：作物感受到的是室内温度，不是室外——面板与详情必须与生长公式同源，
+    // 否则会出现「室外 -8.4℃、详情也 -8.4℃」这种看起来建了温室没用的错觉。
+    const greenhouse = game.structures.find((s) => s.kind === 'greenhouse' && s.siteKey === siteKey);
+    if (greenhouse && structurePowered(game, greenhouse)) {
+      const interior = greenhouseClimate(outdoor.tempC, greenhouse);
+      if (interior !== null) {
+        return {
+          climate: {
+            ...outdoor,
+            tempC: interior.tempC,
+            artificialDeltaC: interior.deltaC,
+            realismCores: interior.realismCores,
+            wetness: Math.min(PUMP_MAX_WETNESS, outdoor.wetness + 0.1),
+            fertility: Math.min(1, outdoor.fertility + 0.15),
+            nutrients: site.nutrients,
+          },
+          label: `站点 ${siteKey}（${planet.name} · 温室内 ${interior.tempC}℃）`,
+        };
+      }
+    }
     return {
-      climate: { ...climate, nutrients: site.nutrients },
+      climate: { ...outdoor, nutrients: site.nutrients },
       label: `站点 ${siteKey}（${planet.name}）`,
     };
   }
@@ -1733,7 +2258,8 @@ export class GenesisWorld implements World {
         })
       : [];
     return {
-      locked: system !== null,
+      locked: system === null,
+      loadError: this.loadError,
       card: system && game ? this.monitoredReport(system, game) : null,
       planets,
       bodies,
@@ -1754,8 +2280,31 @@ export class GenesisWorld implements World {
       power: game
         ? {
             energyKj: game.energyKj,
+            credits: game.credits,
             tungsten: game.tungsten,
             ship: shipSupplyStatus(game),
+            charter: {
+              charter: game.charter ?? null,
+              reputation: round1(game.reputation ?? 0),
+              compute: round1(game.compute ?? 0),
+              staff: game.staff ?? 0,
+              staffCap: staffCapOf(game),
+              visitors: game.visitorsYesterday ?? 0,
+              speed: game.speed ?? DEFAULT_SPEED,
+              baseMinutesPerHomeHour: msPerPlanetHourBase(game),
+              minutesPerHomeHour: minutesPerHomeHour(game),
+              lodgeBeds: this.lodgeBedsNow(game),
+              housingBeds: this.housingBedsNow(game),
+              tempBlocked: this.tempBlockedNow(game),
+              docks: game.structures.filter((s) => s.kind === 'tourism_dock').length,
+              lodges: game.structures.filter((s) => s.kind === 'visitor_lodge').length,
+              offices: game.structures.filter((s) => s.kind === 'recruit_office').length,
+              fabs: game.structures.filter((s) => s.kind === 'fab').length,
+        wonder: game.wonder
+          ? { id: game.wonder.id, label: WONDER_SPECS[game.wonder.id as keyof typeof WONDER_SPECS]?.label ?? game.wonder.id, progress: Math.round(game.wonder.progress * 100) }
+          : null,
+        wonders: game.wonders ?? [],
+            },
             grid: this.gridPanel(game),
             sails: game.sails.length,
             generatorKj: sparkPlugOutputKj(game.upgrades.sparkPlug),
@@ -1851,11 +2400,15 @@ export class GenesisWorld implements World {
               const ambient = site ? this.ambientFor(game, system, site) : null;
               const target = s.targetTempC ?? null;
               const delta = ambient !== null && target !== null ? Math.abs(target - ambient) : 0;
+              const powered = structurePowered(game, s);
+              const interior = powered && ambient !== null ? greenhouseClimate(ambient, s) : null;
               return {
                 siteKey: s.siteKey,
                 targetC: target,
                 ambientC: ambient,
                 deltaC: Math.round(delta * 10) / 10,
+                interiorC: interior === null ? null : interior.tempC,
+                powered,
                 realismCores: (s.cores ?? []).filter((c) => c === 'realism').length,
                 coldStores: coldStoresAt(game, s.siteKey),
               };
@@ -1931,6 +2484,17 @@ export class GenesisWorld implements World {
       protocol: game ? this.protocolPanel(game) : null,
       habitats: game ? habitatStatus(game).map((h, i) => ({ ...h, nickname: `居所 ${i + 1}` })) : [],
       orders: game ? currentOrders(game, this.now()).map((o) => ({ ...o, species: SPECIES[o.species].name })) : [],
+      territories: game?.location
+        ? (game.territories ?? [])
+            .filter((territory) => territory.planetIndex === game.location?.planetIndex)
+            .map((territory) => ({
+              species: territory.species,
+              label: ANIMAL_SPECIES.find((species) => species.id === territory.species)?.name ?? territory.species,
+              latDeg: territory.latDeg,
+              lonDeg: territory.lonDeg,
+              radiusKm: territory.radiusKm,
+            }))
+        : [],
     };
   }
 
@@ -1983,6 +2547,10 @@ export class GenesisWorld implements World {
         ? { awake: first.awake, dormant: first.dormant, food: first.food, water: first.water, oxygen: first.oxygen, hoursLeft: first.hoursLeft }
         : null,
       population: populationStatus(game),
+      recreate: (() => {
+        const blockers = recreateBlockers(game);
+        return { blockers, ready: blockers.length === 0, seed: String(GENESIS_DEFAULTS.seed), starMass: GENESIS_DEFAULTS.starMass };
+      })(),
     };
   }
 
@@ -2106,6 +2674,44 @@ export class GenesisWorld implements World {
     return { ...shape, minPlanets: GENESIS_SHAPE.minPlanets, maxPlanets: GENESIS_SHAPE.maxPlanets };
   }
 
+  /** 导出：一份 JSON 就是整局（星系 + 状态）。面板拿到文本后自己下载。 */
+  private async exportFromPanel(): Promise<{ text: string; filename: string }> {
+    await this.sync();
+    const system = await this.readSystem();
+    if (!system || !this.game) throw new Error('还没有创世：没有可以导出的存档。');
+    const payload = {
+      kind: 'genesis-save' as const,
+      schema: 1 as const,
+      exportedAt: new Date().toISOString(),
+      system,
+      game: serializeGame(this.game),
+    };
+    const stamp = new Date().toISOString().slice(0, 10);
+    return { text: JSON.stringify(payload, null, 2), filename: `genesis-${stamp}.json` };
+  }
+
+  /** 导入：先校验、再落盘，最后重载。坏文件不会留下半截存档。 */
+  private async importFromPanel(raw: unknown): Promise<{ text: string }> {
+    const text = typeof raw === 'string' ? raw : '';
+    if (text.trim() === '') throw new Error('没有收到存档内容：选一个 .json 文件，或者把内容贴进来。');
+    let parsed: { system?: unknown; game?: unknown };
+    try {
+      parsed = JSON.parse(text) as { system?: unknown; game?: unknown };
+    } catch {
+      throw new Error('这不是 JSON：文件可能在拷贝时被截断了。');
+    }
+    if (!parsed || typeof parsed !== 'object' || !parsed.system || !parsed.game) {
+      throw new Error('这不是创世的存档：缺 system 或 game。');
+    }
+    assertSave(parsed.system as never);
+    const system = parsed.system as never as import('./model.ts').StarSystem;
+    const game = deserializeGame(system, parsed.game as never);
+    await this.store.overwrite(system);
+    await this.games.write(game);
+    this.system = system;
+    this.game = game;
+    return { text: `存档已导入：恒星「${game.names.star}」，第 ${(game.speed ?? 1)} 倍速，能量 ${Math.round(game.energyKj)} kJ。` };
+  }
   private async resetFromPanel(input: unknown): Promise<GenesisPanelState> {
     if (String(input ?? '') !== 'DELETE') throw new Error('删档要传 confirm: DELETE。');
     await this.reset();
@@ -2169,6 +2775,14 @@ export class GenesisWorld implements World {
     system: StarSystem;
   }> {
     const result = await this.createSystem(spec);
+    // 死局判定：母星几乎没有可站人的陆地时，子代理拒绝迫降（不写档、不留半成品）。
+    if (result.created) {
+      const refusal = landingRefusal(result.system);
+      if (refusal) {
+        await this.store.delete();
+        throw new Error(refusal);
+      }
+    }
     if (this.game) return { created: result.created, started: false, system: result.system };
     const game = this.startNewGame(result.system, names);
     this.game = game;
@@ -2614,7 +3228,7 @@ export class GenesisWorld implements World {
             || id === 'kiln' || id === 'purifier' || id === 'sealer' || id === 'atmo_extractor'
             || id === 'habitat' || id === 'mutation_room' || id === 'cold_store' || id === 'inert_room'
             || id === 'miner' || id === 'rectifier' || id === 'terminal' || id === 'storage_terminal' || id === 'arm'
-            || id === 'planter' || id === 'duty' || id === 'carrier' || id === 'wind' || id === 'fire' || id === 'converter') {
+            || id === 'planter' || id === 'fence' || id === 'scarecrow' || id === 'feed_trough' || id === 'duty' || id === 'carrier' || id === 'wind' || id === 'fire' || id === 'converter' || id === 'tour_line' || id === 'souvenir' || id === 'compute_array' || id === 'heavy_water' || id === 'enrichment') {
             const rawSite = typeof args.site === 'string' ? args.site.trim() : '';
             const siteKey = rawSite.startsWith('carrier:')
               ? rawSite
@@ -2890,6 +3504,27 @@ export class GenesisWorld implements World {
             return { text: error instanceof Error ? error.message : String(error), failed: true };
           }
         }
+        if (kind === 'fertilizer') {
+          const kg = typeof args.kg === 'number' && args.kg > 0 ? args.kg : 5;
+          try {
+            const bought = buyFertilizer(game, kg, this.now());
+            this.game = bought.state;
+            await this.saveGame();
+            return bought.text + '\n' + this.inventoryLine(bought.state);
+          } catch (error) {
+            return { text: error instanceof Error ? error.message : String(error), failed: true };
+          }
+        }
+        if (kind === 'broadcast_tourism' || kind === 'broadcast_tech') {
+          try {
+            const bought = buyCharter(game, kind === 'broadcast_tourism' ? 'tourism' : 'tech', this.now());
+            this.game = bought.state;
+            await this.saveGame();
+            return bought.text;
+          } catch (error) {
+            return { text: error instanceof Error ? error.message : String(error), failed: true };
+          }
+        }
         if (kind === 'chart') {
           try {
             const bought = buyChart(system, game, this.now());
@@ -2911,7 +3546,7 @@ export class GenesisWorld implements World {
           }
         }
         if (kind !== 'random' && kind !== 'premium') {
-          return { text: 'kind 只能是 random、premium、cylinder、energy、tungsten、chart 或 giant_plant。', failed: true };
+          return { text: 'kind 只能是 random、premium、cylinder、energy、tungsten、chart、giant_plant、broadcast_tourism 或 broadcast_tech。', failed: true };
         }
         const species = String(args.species ?? 'grass') as SpeciesId;
         if (!SPECIES[species]) return { text: `没有这种植物：${species}`, failed: true };
@@ -3179,6 +3814,18 @@ export class GenesisWorld implements World {
             await this.saveGame();
             return result.text + '\n\n' + this.storeList(this.game);
           }
+          if (action === 'fertilize') {
+            const siteKey = this.resolveSite(game, args.site);
+            const kg = typeof args.kg === 'number' && args.kg > 0 ? args.kg : 1;
+            try {
+              const put = applyFertilizer(this.system!, game, siteKey, kg);
+              this.game = put.state;
+              await this.saveGame();
+              return put.text;
+            } catch (error) {
+              return { text: error instanceof Error ? error.message : String(error), failed: true };
+            }
+          }
           if (action === 'use') {
             const resource = String(args.resource ?? '').trim();
             const amount = typeof args.kg === 'number' && args.kg > 0 ? Math.floor(args.kg) : 1;
@@ -3255,7 +3902,11 @@ export class GenesisWorld implements World {
   /** 所有容器的一行摘要：id、位置、装了什么、还剩多少空间。 */
   private storeList(game: GameState): string {
     const containers = game.structures.filter((s) => storeCapacityKg(s) > 0);
-    const lines = [`背包：${this.inventoryLine(game)}`];
+    const pod = game.stores[SHIP_POD_ID] ?? {};
+    const lines = [
+      `背包：${this.inventoryLine(game)}`,
+      `着陆舱【pod】：粮 ${round3(pod.biomass ?? 0)} / ${POD_CAPACITY.biomass} kg、水 ${round3(pod.water_drink ?? 0)} / ${POD_CAPACITY.water_drink} L、氧 ${round3(pod.oxygen ?? 0)} / ${POD_CAPACITY.oxygen} kg（睡着的人先吃它；补舱用 deposit building: "pod"）`,
+    ];
     if (containers.length === 0) {
       lines.push('（还没有仓库或火箭。仓库用 genesis_install id: "warehouse" 建在陆地站点上。）');
       return lines.join('\n');
@@ -3272,51 +3923,46 @@ export class GenesisWorld implements World {
     return lines.join('\n');
   }
 
-  /** 一张表看全所有建筑与作物的成本/产出，模型不用猜。 */
+  /** 升级与维修的材料表：建筑/作物用 genesis_info 单条查，这里只管「船上那些设备要什么」。 */
   private recipesTool(): ToolDef {
     return {
       ...GENESIS_TOOL_DECLS[20]!,
       handler: async () => {
         const ready = await this.readyState();
-        // 还没创世也能看表：它不依赖存档，只是少了当前那条。 
         if ('error' in ready) {
-          // 继续往下，用静态表回答。
+          return { text: '还没有创世：先 genesis_create，升级材料要按这一局的等级算。', failed: true };
         }
-        const lines = ['建造与设备（kJ / 母星时 / 维护 kJ每母星时 / 容量 / 钨）：'];
-        for (const [kind, spec] of Object.entries(BUILD_SPECS)) {
-          const cap = kind === 'warehouse' ? '1,000 kg' : kind === 'rocket' ? '250 kg' : '—';
-          lines.push(
-            `- ${spec.label}（id: ${kind}）：${spec.costKj.toLocaleString('en-US')} kJ · ${spec.buildHours} 母星时 · ` +
-            `维护 ${spec.upkeepKjPerHour.toLocaleString('en-US')} · 容量 ${cap} · 钨 ${spec.tungsten} 份`,
-          );
+        await this.sync();
+        const cards = ((this.upgradeState() as { cards: unknown[] }).cards ?? []) as Array<{
+          id: string;
+          label: string;
+          status: string;
+          costKj: number;
+          buildHours: number;
+          materials: Array<{ name: string; needKg: number; haveKg: number }>;
+          canRepair: boolean;
+          blockers: string[];
+          level?: number;
+          maxLevel?: number;
+          benefits?: string;
+        }>;
+        const lines = ['升级与维修（造价 · 耗时 · 材料；括号里是「现有」）：'];
+        for (const card of cards) {
+          const level = card.level !== undefined && card.maxLevel !== undefined ? ` · lv ${card.level}/${card.maxLevel}` : '';
+          const price = card.status === 'maxed' ? '已满级' : `${card.costKj.toLocaleString('en-US')} kJ · ${card.buildHours} 母星时`;
+          lines.push(`- ${card.label}（id: "${card.id}"）${level}：${price}`);
+          const mats = card.materials
+            .map((m) => `${m.name} ${m.needKg}${m.needKg > m.haveKg ? `（现有 ${m.haveKg}）` : ''}`)
+            .join(' · ');
+          if (mats) lines.push(`    材料：${mats}`);
+          if (!card.canRepair && card.blockers.length > 0) lines.push(`    还差：${card.blockers.join('；')}`);
+          if (card.benefits) lines.push(`    效果：${card.benefits}`);
         }
-        lines.push(
-          '- 环境监测器 / 凌日计数器：150,000 kJ + 2 份钨 · 0.1 母星时',
-          '- 太阳能帆：6,000 kJ + 1 份钨 · 不耗时 · 白天 7,000 kJ/母星时 · 每星上限 10',
-          '- 制冷核心 10,000 kJ + 1 份钨 · 维护 1,500 · 再降 33℃；制热核心同价 · 维护 400 · 再升 33℃',
-          '- 拟真核心 60,000 kJ + 1 份钨 · 维护 1,200 · 人工气候的惩罚减半（最多两座）',
-          '- 蓝图结构优化（升级）：200,000 kJ + 3 份钨 + 2 kg 纤维 · 之后每座建筑省 25% 的钨（1 份的不省）',
-          '',
-          '作物（物种 · 生境 · 适温 · 周期 · 单株/单群产量 · 资源 · 需要的氮磷钾微量）：',
-        );
-        for (const id of SPECIES_IDS) {
-          const s = SPECIES[id];
-          const need = NUTRIENT_NEEDS[id];
-          lines.push(
-            `- ${s.name}（${id}）：${s.medium === 'water' ? '水生' : '陆生'} · ${s.tempMinC}…${s.tempMaxC}℃（最适 ${s.tempOptC}）· ` +
-            `${s.cycleHomeHours} 母星时 · ${s.yieldKg} kg · ${RESOURCE_LABELS[s.resource]} · ` +
-            `N/P/K/微量 ${need.n}/${need.p}/${need.k}/${need.trace}`,
-          );
-        }
-        lines.push('', '商人收购价（信用点/kg，括号内是每日限购）：');
-        for (const good of SELL_GOODS) {
-          lines.push(`- ${good.name}：${good.basePrice}${good.dailyLimit > 0 ? `（每天 ${good.dailyLimit} ${good.unit}）` : '（不限量）'}`);
-        }
-        return lines.join('\n');
+        lines.push('', '开工用 genesis_upgrade { id }。建筑造价与作物参数用 genesis_info 单条查（例：genesis_info { query: "温室" }）。');
+        return { text: lines.join('\n') };
       },
     };
   }
-
   /** 此刻、这里，一段话。 */
   private lookTool(): ToolDef {
     return {
@@ -3325,7 +3971,8 @@ export class GenesisWorld implements World {
         const ready = await this.readyState();
         if ('error' in ready) return { text: ready.error, failed: true };
         try {
-          return lookAround(ready.system, ready.game, this.now()).text;
+          this.game = ready.game;
+          return this.withWildlife(ready.system, lookAround(ready.system, ready.game, this.now()).text);
         } catch (error) {
           return { text: errorText(error), failed: true };
         }
@@ -3538,7 +4185,7 @@ export class GenesisWorld implements World {
   /** 升级面板的数据：机动核心 + 射电望远镜阵列 + 火花塞。 */
   private upgradeState(): unknown {
     const game = this.game;
-    if (!game) return { locked: true, energyKj: 0, cards: [] };
+    if (!game) return { locked: true, energyKj: 0, capacityKj: 0, cards: [] };
     const repairingCore = game.builds.find((b) => b.kind === 'mobility_core');
     const telescope = telescopeCard(game);
     const repairingScope = game.builds.find((b) => b.kind === 'telescope');
@@ -3554,6 +4201,7 @@ export class GenesisWorld implements World {
     const repairingSpec = game.builds.find((b) => b.kind === 'spectrometer');
     return {
       locked: false,
+      capacityKj: batteryCapacityKj(game.upgrades.battery),
       energyKj: Math.round(game.energyKj),
       cards: [
         {
@@ -3813,6 +4461,90 @@ export class GenesisWorld implements World {
     };
   }
 
+  private speedTool(): ToolDef {
+    return {
+      ...GENESIS_TOOL_DECLS[40]!,
+      handler: async (args: Record<string, unknown>): Promise<{ text: string }> => {
+        await this.sync();
+        if (!this.game) return { text: '还没有创世：先 genesis_create。' };
+        this.game = setSpeed(this.game, Number(args.speed ?? 1), this.now());
+        await this.saveGame();
+        return {
+          text:
+            '时间倍速调到了 ' +
+            (this.game.speed ?? DEFAULT_SPEED) +
+            ' 倍（' +
+            MIN_SPEED +
+            '–' +
+            MAX_SPEED +
+            '）。现在一个母星时只花 ' +
+            minutesPerHomeHour(this.game).toFixed(2) +
+            ' 分钟现实时间。',
+        };
+      },
+    };
+  }
+
+  /** 只算「住得下」的访客床位：太热、太冷或没通电的驿站不算。 */
+  private lodgeBedsNow(game: GameState): number {
+    if (!this.system) return game.structures.filter((s) => s.kind === 'visitor_lodge').length * 30;
+    return (
+      game.structures.filter(
+        (s) => s.kind === 'visitor_lodge' && structurePowered(game, s) && interiorComfortable(structureInteriorC(this.system!, game, s, this.now()), LODGE_COMFORT_C),
+      ).length * 30
+    );
+  }
+
+  /** 只算「住得下」的员工床位。 */
+  private housingBedsNow(game: GameState): number {
+    if (!this.system) return game.structures.filter((s) => s.kind === 'staff_housing').length * RESIDENTS_PER_LABOR * 4;
+    return (
+      game.structures.filter(
+        (s) => s.kind === 'staff_housing' && structurePowered(game, s) && interiorComfortable(structureInteriorC(this.system!, game, s, this.now()), STAFF_COMFORT_C),
+      ).length * 20
+    );
+  }
+
+  /** 因为太热/太冷而白建的住所，直接说给玩家听。 */
+  private tempBlockedNow(game: GameState): string[] {
+    if (!this.system) return [];
+    const out: string[] = [];
+    for (const s of game.structures) {
+      if (s.kind !== 'visitor_lodge' && s.kind !== 'staff_housing') continue;
+      const inside = structureInteriorC(this.system, game, s, this.now());
+      const range = s.kind === 'visitor_lodge' ? LODGE_COMFORT_C : STAFF_COMFORT_C;
+      if (interiorComfortable(inside, range)) continue;
+      const label = s.kind === 'visitor_lodge' ? '访客驿站' : '员工公寓';
+      out.push(label + '（室内 ' + inside + '℃）');
+    }
+    return out;
+  }
+  private async speedFromPanel(raw: unknown): Promise<{ text: string; state: unknown }> {
+    await this.sync();
+    if (!this.game) throw new Error('还没有创世。');
+    this.game = setSpeed(this.game, Number(raw ?? 1), this.now());
+    await this.saveGame();
+    return { text: '时间倍速：' + (this.game.speed ?? DEFAULT_SPEED) + ' 倍。', state: await this.panelState() };
+  }
+
+  private wonderTool(): ToolDef {
+    return {
+      ...GENESIS_TOOL_DECLS[41]!,
+      handler: async (args: Record<string, unknown>): Promise<{ text: string; failed?: true }> => {
+        await this.sync();
+        if (!this.game) return { text: '还没有创世：先 genesis_create。' };
+        try {
+          const started = startWonder(this.game, String(args.id ?? ''), this.now());
+          this.game = started.state;
+          await this.saveGame();
+          return { text: started.text };
+        } catch (error) {
+          return { text: error instanceof Error ? error.message : String(error), failed: true };
+        }
+      },
+    };
+  }
+
   private infoTool(): ToolDef {
     return {
       ...GENESIS_TOOL_DECLS[34]!,
@@ -3827,12 +4559,60 @@ export class GenesisWorld implements World {
     };
   }
 
+  private toolsTool(): ToolDef {
+    return {
+      ...GENESIS_TOOL_DECLS[42]!,
+      handler: async (args) => {
+        const query = typeof args.query === 'string' && args.query.trim() !== '' ? args.query.trim() : undefined;
+        try {
+          return toolsSearch(query);
+        } catch (error) {
+          return { text: errorText(error), failed: true };
+        }
+      },
+    };
+  }
+
+  /** 划领地：不传经纬度就按脚下的位置来。 */
+  private territoryTool(): ToolDef {
+    return {
+      ...GENESIS_TOOL_DECLS[43]!,
+      handler: async (args) => {
+        const ready = await this.readyState();
+        if ('error' in ready) return { text: ready.error, failed: true };
+        const note = this.transitNote(ready.game);
+        if (note) return note;
+        await this.sync();
+        const system = await this.readSystem();
+        if (!system || !this.game) return { text: '还没有创世。先 genesis_create。', failed: true };
+        const species = String(args.species ?? '').trim();
+        const game = this.game;
+        const planetIndex = game.homePlanetIndex;
+        const lat = typeof args.latDeg === 'number' ? args.latDeg : (game.location?.latDeg ?? 0);
+        const lon = typeof args.lonDeg === 'number' ? args.lonDeg : (game.location?.lonDeg ?? 0);
+        const radius = typeof args.radiusKm === 'number' ? args.radiusKm : undefined;
+        try {
+          this.game = {
+            ...game,
+            territories: setTerritory(game.territories, planetIndex, species, lat, lon, radius ?? PATROL_RADIUS_DEFAULT_KM),
+          };
+          await this.saveGame();
+          const found = territoryFor(this.game.territories, planetIndex, species);
+          const label = animalSpecies(species).name;
+          return { text: `划好了：${label}在 ${lat.toFixed(1)}°, ${lon.toFixed(1)}° 一带巡逻，半径约 ${found ? found.radiusKm : radius ?? PATROL_RADIUS_DEFAULT_KM} km。它们会赶走别的种类，但走得多、饿得也快。` };
+        } catch (error) {
+          return { text: errorText(error), failed: true };
+        }
+      },
+    };
+  }
+
   private transplantTool(): ToolDef {
     return this.uprootTool('transplant', 35);
   }
 
   private removeTool(): ToolDef {
-    return this.uprootTool('remove', 36);
+    return this.uprootTool('remove', 39);
   }
 
   /** 移栽与拔除共用一套「找株 → 动手 → 存盘」；区别只在引擎函数。 */
@@ -4076,4 +4856,24 @@ export class GenesisWorld implements World {
       },
     };
   }
+}
+
+/** 自动起名：面板【再创世】只有种子与恒星质量两个输入，名字由种子确定性生成。 */
+const STAR_NAMES = ['启明', '长庚', '天狼', '织女', '南门', '毕宿', '参宿', '心宿', '镇星', '岁星'];
+const HOME_NAMES = ['栖原', '临渊', '望舒', '沧鸣', '岩湾', '新野', '白岸', '孤屿', '沉岛', '霜原'];
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function staffCapOf(game: GameState): number {
+  const housing = game.structures.filter((s) => s.kind === 'staff_housing').length;
+  return housing * STAFF_PER_HOUSING;
+}
+
+function autoNames(seed: GenesisSpec['seed'], runs: number): { starName: string; homeName: string } {
+  const key = typeof seed === 'number' ? `n:${seed}` : `s:${seed}`;
+  const star = STAR_NAMES[hashSeed(`star:${key}`) % STAR_NAMES.length]!;
+  const home = HOME_NAMES[hashSeed(`home:${key}:${runs}`) % HOME_NAMES.length]!;
+  return { starName: star, homeName: home };
 }

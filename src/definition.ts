@@ -4,7 +4,7 @@ import { GENESIS_TOOL_DECLS, GenesisWorld } from './world.ts';
 
 export const GENESIS: WorldDefinition<GenesisConfigSection> = {
   id: 'genesis',
-  label: '创世记',
+  label: '栖星 · 创世记',
   defaults: () => ({ ...GENESIS_DEFAULTS }),
   create: (ctx) => new GenesisWorld({ cfg: ctx.cfg, timezone: ctx.timezone, dataDir: ctx.dataDir }),
   describe: {
@@ -154,8 +154,8 @@ export const GENESIS: WorldDefinition<GenesisConfigSection> = {
         en: 'Transplant: dig a grown plant back into a seed bag (500 kJ) with its genes unchanged — the way to keep good genes, at the cost of the harvest. A ripe plant gives 2 seeds, a 15%+ plant gives 1; a colony sample needs a 5 kg colony and yields one 5-seed bag.',
       },
       genesis_breed: {
-        zh: '留种：一株长到 60% 以上的作物自交（300 kJ、0.2 母星时、3 粒），或者两株同物种杂交（800 kJ、0.5 母星时、4 粒）。自交沿用母本基因、产量每代退 4%；杂交取双亲平均、三成概率直接继承更好的那个。收割不返种子，留种只能靠这里或移栽。',
-        en: 'Breed: a 60%+ plant self-pollinates (300 kJ, 0.2 home hours, 3 seeds) or two same-species plants cross (800 kJ, 0.5 home hours, 4 seeds). Selfing keeps the parent genes but loses 4% yield per generation; crossing averages the pair and has a 30% chance to inherit the better trait outright. Harvests never return seeds.',
+        zh: '留种：一株长到 60% 以上的作物自交（300 kJ、0.2 母星时、3 粒），或者两株同物种杂交（800 kJ、0.5 母星时、4 粒）。**一株一辈子只留一次种**，留过的那株会标「已留过种」。自交沿用母本基因、产量每代退 4%；杂交取双亲平均、三成概率直接继承更好的那个。收割不返种子，留种只能靠这里或移栽。',
+        en: 'Breed: a 60%+ plant self-pollinates (300 kJ, 0.2 home hours, 3 seeds) or two same-species plants cross (800 kJ, 0.5 home hours, 4 seeds). **Each plant can only breed once in its life**; a used plant is flagged "bred". Selfing keeps the parent genes but loses 4% yield per generation; crossing averages the pair and has a 30% chance to inherit the better trait outright. Harvests never return seeds.',
       },
       genesis_algae: {
         zh: '拌藻肥：取 3 kg 蓝藻（至少 5 kg 一群），给一块旱地站点补 0.02 氮和 0.005 钾，200 kJ。氮只有三条路——蓝藻在湿地长、跨格固氮给附近旱地、以及这个藻肥。',
@@ -168,6 +168,14 @@ export const GENESIS: WorldDefinition<GenesisConfigSection> = {
       genesis_remove: {
         zh: '拔掉一株死掉的作物（枯死或健康低于 20%），腾出地块或种植盆：不花电也不花时间。活着的拔不了——收掉或者移栽。',
         en: 'Uproot a dead plant (withered, or health below 20%) to free the plot or planter slot: no energy, no build time. Living plants cannot be uprooted — harvest or transplant them instead.',
+      },
+      genesis_territory: {
+        zh: '给一种初级消费者划一块领地（默认 3 km，上限 10）：它们会在里面巡逻、赶走别的种类，但走得更快也更饿。同种只有一块，再划就覆盖；次级消费者（含猫科）不能划。',
+        en: 'Mark a territory for one grazing species (3 km default, 10 max): they patrol it, drive off other species, but move faster and get hungrier. One per species; hunters (including cats) cannot claim territory.',
+      },
+      genesis_tools: {
+        zh: '工具总表：全部 44 个工具各一行——做什么、关键参数、一句提醒。不带 query 给整张表，带 query 只挑相关的几行。',
+        en: 'Tool reference: one line per tool (all 44) — what it does, key arguments, one caveat. No query returns the whole table; a query narrows it down.',
       },
     }),
     events: [
@@ -184,6 +192,7 @@ export const GENESIS: WorldDefinition<GenesisConfigSection> = {
       { type: 'genesis.born', description: { zh: '居所里添了一个人（连续 192 母星时没断供）。', en: 'A child was born — the colony grew by one.' } },
       { type: 'genesis.labor', description: { zh: '人手自动收了作物或补种了几株。', en: 'The colonists harvested or replanted on their own.' } },
       { type: 'genesis.lowstock', description: { zh: '着陆舱里的口粮、水和氧气快见底了（或已经断供）。', en: 'The landing pod is running low on food, water or oxygen — or has already run out.' } },
+      { type: 'genesis.animals_fed', description: { zh: '野外的动物啃了地里熟透没摘的作物。', en: 'Wild animals grazed on ripe crops left unharvested.' } },
     { type: 'genesis.hand', description: { zh: '人类在面板上按了动能发电机（同一个母星时内的多次按压会合并成一条）。', en: 'A human cranked the kinetic generator on the panel (multiple presses within one planet-hour are merged into one event).' } },
     ],
   },

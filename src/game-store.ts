@@ -1,6 +1,6 @@
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { deserializeGame, serializeGame, type GameState } from './game.ts';
+import { deserializeGame, repairGameRaw, serializeGame, type GameState } from './game.ts';
 import type { StarSystem } from './model.ts';
 
 export interface GameStoreOptions {
@@ -29,7 +29,18 @@ export class GameStore {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;
     }
-    return deserializeGame(system, JSON.parse(raw));
+    const parsed = JSON.parse(raw);
+    try {
+      return deserializeGame(system, parsed);
+    } catch (error) {
+      // 先把原件留一份，免得修复失败时把玩家的存档弄丢。
+      try {
+        await writeFile(`${this.file}.before-repair`, raw, 'utf8');
+      } catch {
+        // 备份失败不影响主流程
+      }
+      return deserializeGame(system, repairGameRaw(parsed));
+    }
   }
 
   async write(state: GameState): Promise<void> {

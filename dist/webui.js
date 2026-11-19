@@ -1,4 +1,4 @@
-// src/webui/client.ts
+// src/webui/i18n.ts
 var ZH = {
   title: "\u521B\u4E16\u8BB0",
   desc: "\u4E00\u9897\u661F\uFF0C\u53EA\u6210\u5F62\u4E00\u6B21\u3002\u9009\u597D\u79CD\u5B50\u4E0E\u51E0\u4E2A\u65CB\u94AE\uFF0C\u5199\u8FDB\u5B58\u6863\u540E\u5C31\u9501\u5B9A\u3002",
@@ -11,6 +11,8 @@ var ZH = {
   homeName: "\u6BCD\u661F\u7684\u540D\u5B57",
   create: "\u521B\u4E16",
   reset: "\u5220\u6863\u91CD\u5F00",
+  saveTitle: "\u5B58\u6863",
+  saveExport: "\u5BFC\u51FA\u5B58\u6863",
   resetTitle: "\u786E\u5B9A\u8981\u5220\u6389\u8FD9\u9897\u661F\u7403\u5417\uFF1F",
   resetBody: "\u5B58\u6863\u4F1A\u88AB\u5220\u9664\uFF0C\u4E4B\u540E\u53EF\u4EE5\u91CD\u65B0\u521B\u4E16\u3002\u5DF2\u7ECF\u53D1\u751F\u7684\u6545\u4E8B\u4E0D\u4F1A\u56DE\u6765\u3002",
   created: "\u521B\u4E16\u5B8C\u6210\uFF0C\u5DF2\u9501\u5B9A\u3002",
@@ -39,7 +41,16 @@ var ZH = {
   generatorBusy: "\u52A8\u80FD\u53D1\u7535\u673A\uFF08\u51B7\u5374\u4E2D\u2026\uFF09",
   generatorHint: "\u53EA\u6709\u4F60\u80FD\u6309\uFF1BAgent \u4E0D\u4F1A\u81EA\u5DF1\u53D1\u7535\uFF0C\u7F3A\u7535\u65F6\u4F1A\u6765\u6C42\u4F60\u3002\u73B0\u5728\u4E00\u6B21 {kj} kJ\uFF0C0.5 \u79D2\u51B7\u5374\u3002\u4FEE\u3010\u706B\u82B1\u585E\u3011\u80FD\u8BA9\u5B83\u66F4\u7701\u529B\u3002",
   gridIn: "\u4ECE\u7535\u7F51\u642C\u7535\uFF08-10%\uFF09",
+  speedTitle: "\u65F6\u95F4\u500D\u901F",
+  speedHint: (x, realMin) => `${x} \u500D\uFF1A\u4E00\u4E2A\u6BCD\u661F\u65F6 ${realMin.toFixed(2)} \u5206\u949F\u73B0\u5B9E\u65F6\u95F4\u3002`,
+  charterNone: "\u8FD8\u6CA1\u9009\u6267\u7167\uFF1A\u53BB\u5546\u5E97\u4E70\u3010\u661F\u9645\u5E7F\u64AD \xB7 \u65C5\u6E38\u661F\u7CFB\u3011\u6216\u3010\u661F\u9645\u5E7F\u64AD \xB7 \u6280\u672F\u661F\u7CFB\u3011\uFF08\u4E00\u5C40\u53EA\u80FD\u9009\u4E00\u5F20\uFF09\u3002",
+  charterTourism: (rep, visitors, docks, lodges) => `\u65C5\u6E38\u661F\u7CFB \xB7 \u77E5\u540D\u5EA6 ${rep.toFixed(1)}/100 \xB7 \u6628\u65E5\u5230\u6E2F ${visitors} \u4F4D \xB7 ${docks} \u4E2A\u505C\u6CCA\u4F4D / ${lodges} \u5E8A`,
+  charterTech: (compute, staff, cap, fabs) => `\u6280\u672F\u661F\u7CFB \xB7 \u8BA1\u7B97\u529B ${compute.toFixed(1)} \xB7 \u5458\u5DE5 ${staff}/${cap} \xB7 ${fabs} \u5EA7\u6676\u5706\u5382`,
   gridOut: "\u628A\u7535\u9001\u8FDB\u7535\u7F51\uFF08-10%\uFF09",
+  bedsInfo: (lodge, housing) => `\u5E8A\u4F4D\uFF1A\u8BBF\u5BA2 ${lodge} \xB7 \u5458\u5DE5 ${housing}\uFF08\u592A\u70ED\u592A\u51B7\u7684\u4E0D\u7B97\uFF09`,
+  tempWarning: (list) => `\u26A0 \u4F4F\u4E0D\u4E0B\uFF1A${list}`,
+  wonderLine: (label, percent) => `\u5947\u89C2\uFF1A${label} \xB7 ${percent}%`,
+  wondersDone: (count) => `\u5DF2\u843D\u6210\u5947\u89C2 ${count} \u5EA7`,
   gridStored: "\u672C\u5730\u7535\u7F51\uFF1A",
   gridReach: "\u7535\u5854\u5C31\u5728",
   gridFar: "\u79BB\u7535\u5854",
@@ -48,6 +59,8 @@ var ZH = {
   tungsten: "\u94A8",
   shipLine: (food, water, oxygen, sleepers, hours) => `\u7740\u9646\u8231\uFF1A\u7CAE ${food} kg\u3001\u6C34 ${water} L\u3001\u6C27 ${oxygen} kg \xB7 ${sleepers} \u4E2A\u4EBA\u7761\u7740\uFF0C\u5927\u7EA6\u8FD8\u591F ${hours} \u6BCD\u661F\u65F6`,
   buyChart: "\u4E70\u4E00\u5F20\u661F\u56FE\uFF08300 \u4FE1\u7528\u70B9\uFF09",
+  buyFertilizer: "\u4E70 5 kg \u590D\u5408\u80A5",
+  spreadFertilizer: "\u6492 1 kg \u590D\u5408\u80A5",
   goHere: "\u53BB\u8FD9\u91CC",
   planterName: "\u79CD\u690D\u76C6",
   planterOk: "\u901A\u7535\uFF0C22\u2103",
@@ -151,6 +164,13 @@ var ZH = {
   protoOxygen: "\u6C27\u6C14",
   protoHours: "\u8FD8\u80FD\u6491",
   protoWake: "\u53EB\u9192\u4ED6\u4EEC",
+  recreateTitle: "\u518D\u521B\u4E16",
+  recreateDesc: "\u5E26\u7740\u6863\u6848\u53BB\u4E0B\u4E00\u5F20\u5730\u56FE\uFF1A1,000,000 kJ \u80FD\u91CF\u3001100 kg \u6C18\u6C1A\u71C3\u6599\u30011 \u4EFD\u5F02\u661F\u751F\u547D\u6837\u672C\uFF0C\u673A\u52A8\u6838\u5FC3\u8FD8\u5F97\u662F\u4FEE\u597D\u7684\u3002\u65E7\u5730\u56FE\u4F1A\u5F52\u6863\u4F5C\u5E9F\uFF0C\u6240\u6709\u4EBA\u56DE\u4F11\u7720\u8231\u3002",
+  recreateSeed: "\u79CD\u5B50",
+  recreateMass: "\u6052\u661F\u8D28\u91CF",
+  recreateGo: "\u70B9\u706B\uFF0C\u53BB\u4E0B\u4E00\u9897\u661F",
+  recreateBlocked: "\u8FD8\u5DEE\u8FD9\u4E9B",
+  recreateDone: "\u70B9\u706B\u4E86\u2014\u2014\u98DE\u5411\u4E0B\u4E00\u9897\u661F\u3002",
   protoAwakened: "\u4EBA\u7C7B\u5DF2\u7ECF\u9192\u4E86\u3002",
   protoLocked: "\u8FD8\u6CA1\u6709\u521B\u4E16\u3002\u5148\u53BB\u300C\u8FD9\u4E00\u9897\u661F\u7403\u300D\u9875\u7B7E\u521B\u4E00\u6B21\u4E16\uFF0C\u8FD9\u91CC\u624D\u4F1A\u957F\u51FA\u6E05\u5355\u3002",
   protoPopulation: "\u5E38\u4F4F\u4EBA\u53E3",
@@ -163,6 +183,24 @@ var ZH = {
   guideEmpty: "\u6311\u4E00\u7BC7\u3002\u4E0D\u786E\u5B9A\u4ECE\u54EA\u770B\uFF0C\u5148\u770B\u300C\u9192\u6765\u300D\uFF0C\u518D\u770B\u300C\u8DEF\u7EBF\u56FE\u300D\u3002",
   guideSearch: "\u67E5\u4E1C\u897F",
   guideSearchHint: "\u67E5\u4E00\u4EF6\u4E1C\u897F\uFF1A\u6E29\u5BA4\u3001\u94A8\u3001\u8150\u70C2\u3001duty\u2026",
+  guideTools: "\u5DE5\u5177\u8868",
+  shopTitle: "\u5546\u5E97",
+  shopDesc: "\u5546\u4EBA\u53EA\u5728\u4E00\u5B9A\u7684\u65F6\u95F4\u6765\uFF1A\u5356\u8D27\u3001\u4E70\u79CD\u5B50\u4E0E\u8BBE\u5907\u3001\u4EA4\u8BA2\u5355\u90FD\u5728\u8FD9\u91CC\u3002\u5173\u5F20\u65F6\u6309\u94AE\u662F\u7070\u7684\uFF0C\u4EF7\u76EE\u7167\u770B\u3002",
+  shopOpenNow: "\u5F00\u5F20\u4E2D",
+  shopClosedNow: "\u5173\u5F20",
+  shopWindowLabel: "\u8425\u4E1A\u65F6\u95F4",
+  shopNextOpen: (hours) => "\u8FD8\u6709 " + hours + " \u6BCD\u661F\u65F6\u5F00\u5F20",
+  shopCredits: "\u4FE1\u7528\u70B9",
+  shopEnergy: "\u80FD\u91CF",
+  shopTungsten: "\u94A8",
+  shopSellHeader: "\u5356\u7ED9\u4ED6",
+  shopBuyHeader: "\u4ECE\u4ED6\u8FD9\u4E70",
+  shopOrdersHeader: "\u4ED6\u5E26\u6765\u7684\u8BA2\u5355",
+  shopHeld: (amount) => "\u624B\u91CC " + amount,
+  shopSell: (name, unit) => "\u5356 " + unit + " " + name,
+  shopBuy: (name) => "\u4E70 " + name,
+  shopDeliver: "\u4EA4\u8D27",
+  shopNoOrders: "\u8FD9\u4E00\u4F1A\u513F\u6CA1\u6709\u8BA2\u5355\u3002",
   protoClear: "\u5168\u90E8\u5B8C\u6210\u3002"
 };
 var EN = {
@@ -177,6 +215,8 @@ var EN = {
   homeName: "Home world name",
   create: "Create",
   reset: "Delete save",
+  saveTitle: "Save",
+  saveExport: "Export save",
   resetTitle: "Delete this world?",
   resetBody: "The save is removed and genesis opens again. The story so far does not come back.",
   created: "Created and locked.",
@@ -205,7 +245,16 @@ var EN = {
   generatorBusy: "Kinetic generator (cooling\u2026)",
   generatorHint: "Only you can press it; the agent never generates power and will ask you when it needs some. Now {kj} kJ per press, 0.5 s cooldown. Repairing the spark plug makes it go further.",
   gridIn: "Tap the grid (\u221210%)",
+  speedTitle: "Time speed",
+  speedHint: (x, realMin) => `${x}\xD7 \u2014 one home hour is ${realMin.toFixed(2)} real minutes.`,
+  charterNone: "No charter yet: buy a broadcast licence (tourism or tech) at the shop \u2014 one per run.",
+  charterTourism: (rep, visitors, docks, lodges) => `Tourism \xB7 fame ${rep.toFixed(1)}/100 \xB7 ${visitors} visitors yesterday \xB7 ${docks} docks / ${lodges} beds`,
+  charterTech: (compute, staff, cap, fabs) => `Tech \xB7 compute ${compute.toFixed(1)} \xB7 staff ${staff}/${cap} \xB7 ${fabs} fabs`,
   gridOut: "Feed the grid (\u221210%)",
+  bedsInfo: (lodge, housing) => `Beds: guests ${lodge} \xB7 staff ${housing} (hot/cold ones don\u2019t count)`,
+  tempWarning: (list) => `\u26A0 Unlivable: ${list}`,
+  wonderLine: (label, percent) => `Wonder: ${label} \xB7 ${percent}%`,
+  wondersDone: (count) => `${count} wonder(s) standing`,
   gridStored: "Local grid: ",
   gridReach: "tower is",
   gridFar: "tower is",
@@ -214,6 +263,8 @@ var EN = {
   tungsten: "tungsten",
   shipLine: (food, water, oxygen, sleepers, hours) => `Landing pod: ${food} kg food, ${water} L water, ${oxygen} kg oxygen \xB7 ${sleepers} asleep, about ${hours} home-hours left`,
   buyChart: "Buy a star chart (300 credits)",
+  buyFertilizer: "Buy 5 kg fertilizer",
+  spreadFertilizer: "Spread 1 kg fertilizer",
   goHere: "Fly there",
   planterName: "planter",
   planterOk: "powered, 22 \xB0C",
@@ -317,6 +368,13 @@ var EN = {
   protoOxygen: "oxygen",
   protoHours: "lasts",
   protoWake: "Wake them",
+  recreateTitle: "Recreate",
+  recreateDesc: "Carry the profile to a new map: 1,000,000 kJ, 100 kg of deuterium fuel, 1 alien sample, and a repaired mobility core. The old map is archived and sealed; everyone goes back into the pods.",
+  recreateSeed: "Seed",
+  recreateMass: "Star mass",
+  recreateGo: "Ignite \u2014 fly to the next star",
+  recreateBlocked: "Not yet",
+  recreateDone: "Ignited \u2014 on our way to the next star.",
   protoAwakened: "The people are awake.",
   protoLocked: 'Nothing has been created yet \u2014 create a world in the "This world" tab first.',
   protoPopulation: "Colonists",
@@ -329,30 +387,437 @@ var EN = {
   guideEmpty: 'Pick a chapter. If you are not sure, start with "Waking up", then "Roadmap".',
   guideSearch: "Look up",
   guideSearchHint: "Look up one thing: greenhouse, tungsten, rot, duty\u2026",
+  guideTools: "All tools",
+  shopTitle: "Shop",
+  shopDesc: "The merchant only comes around at certain hours: selling, buying seeds and gear, handing in orders \u2014 all here. Buttons grey out when he is away; prices stay visible.",
+  shopOpenNow: "Open",
+  shopClosedNow: "Closed",
+  shopWindowLabel: "Hours",
+  shopNextOpen: (hours) => "Opens in " + hours + " home hours",
+  shopCredits: "Credits",
+  shopEnergy: "Energy",
+  shopTungsten: "Tungsten",
+  shopSellHeader: "Sell",
+  shopBuyHeader: "Buy",
+  shopOrdersHeader: "His orders",
+  shopHeld: (amount) => "You hold " + amount,
+  shopSell: (name, unit) => "Sell " + unit + " " + name,
+  shopBuy: (name) => "Buy " + name,
+  shopDeliver: "Deliver",
+  shopNoOrders: "No orders right now.",
   protoClear: "All done."
 };
 function text(language) {
   return language.startsWith("zh") ? ZH : EN;
 }
-var BIOME_LABELS = [
-  "\u6D77\u6D0B",
-  "\u51B0\u76D6",
-  "\u82D4\u539F",
-  "\u9AD8\u5C71",
-  "\u6C99\u6F20",
-  "\u8349\u539F",
-  "\u7A00\u6811\u8349\u539F",
-  "\u9488\u53F6\u6797",
-  "\u6E29\u5E26\u68EE\u6797",
-  "\u70ED\u5E26\u5B63\u96E8\u6797",
-  "\u70ED\u5E26\u96E8\u6797",
-  "\u536B\u661F",
-  "\u5E73\u9759\u5E26",
-  "\u5FAE\u98CE\u5E26",
-  "\u98CE\u66B4\u5E26",
-  "\u5F3A\u98CE\u66B4\u5E26",
-  "\u5DE8\u578B\u98CE\u66B4"
-];
+
+// src/webui/tokens.ts
+var TOKENS = `
+:root {
+  --gx-bg: #080b0a;
+  --gx-panel: #0d1210;
+  --gx-line: #1d2a24;
+  --gx-line-soft: #14201b;
+  --gx-ink: #cfe7dc;
+  --gx-ink-dim: #7d9a8c;
+  --gx-ink-faint: #4d6158;
+  --gx-accent: #5ef2a0;
+  --gx-accent-dim: #2f8f63;
+  --gx-warn: #ffb454;
+  --gx-bad: #ff6b6b;
+  --gx-glow: 0 0 0 1px rgba(94, 242, 160, 0.18), 0 0 14px rgba(94, 242, 160, 0.06);
+  --gx-sp-1: 4px;
+  --gx-sp-2: 8px;
+  --gx-sp-3: 12px;
+  --gx-sp-4: 16px;
+  --gx-radius: 6px;
+  --gx-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --gx-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.gx {
+  background: var(--gx-bg);
+  color: var(--gx-ink);
+  font-family: var(--gx-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  border-radius: var(--gx-radius);
+  padding: var(--gx-sp-4);
+}
+
+.gx-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gx-sp-2) var(--gx-sp-3);
+  padding: var(--gx-sp-2) var(--gx-sp-3);
+  margin-bottom: var(--gx-sp-3);
+  background: var(--gx-panel);
+  border: 1px solid var(--gx-line);
+  border-radius: var(--gx-radius);
+  box-shadow: var(--gx-glow);
+}
+
+.gx-topbar .gx-num { font-family: var(--gx-mono); font-variant-numeric: tabular-nums; }
+.gx-topbar .gx-dim { color: var(--gx-ink-dim); }
+.gx-topbar .gx-spacer { flex: 1 1 auto; }
+
+.gx-body { display: grid; gap: var(--gx-sp-3); }
+
+/* \u5BBF\u4E3B\u7ED9 h1\u2013h4 / p / li \u4E0A\u4E86\u6DF1\u8272\uFF0C\u6DF1\u8272\u5E95\u4E0A\u770B\u4E0D\u89C1\uFF1A\u53EA\u91CD\u7F6E\u6587\u5B57\u5BB9\u5668\uFF0C\u4E0D\u78B0 gx-ok/gx-bad \u8FD9\u7C7B\u5E26\u8272 span\u3002 */
+.gx h1, .gx h2, .gx h3, .gx h4, .gx h5,
+.gx p, .gx li, .gx ul, .gx ol, .gx dl, .gx dt, .gx dd,
+.gx label, .gx table, .gx th, .gx td {
+  color: inherit;
+}
+.gx h3 { font-size: 14px; font-weight: 600; margin: 0 0 var(--gx-sp-1); }
+.gx h4 { font-size: 13px; font-weight: 600; margin: var(--gx-sp-2) 0 var(--gx-sp-1); color: var(--gx-ink-dim); }
+.gx ul { margin: 0; padding-left: 18px; }
+.gx a { color: var(--gx-accent); }
+
+.gx-card {
+  background: var(--gx-panel);
+  border: 1px solid var(--gx-line-soft);
+  border-radius: var(--gx-radius);
+  padding: var(--gx-sp-3);
+}
+
+.gx-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gx-sp-2);
+  margin-bottom: var(--gx-sp-2);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.gx-card-head::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gx-accent);
+  box-shadow: 0 0 8px var(--gx-accent);
+}
+
+.gx-grid-2 { display: grid; gap: var(--gx-sp-2); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.gx-grid-3 { display: grid; gap: var(--gx-sp-2); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+.gx-row { display: flex; align-items: baseline; gap: var(--gx-sp-2); }
+.gx-row + .gx-row { margin-top: var(--gx-sp-1); }
+.gx-row .gx-k { color: var(--gx-ink-dim); }
+.gx-row .gx-v { font-family: var(--gx-mono); font-variant-numeric: tabular-nums; }
+.gx-row .gx-gap { flex: 1 1 auto; }
+
+.gx-num { font-family: var(--gx-mono); font-variant-numeric: tabular-nums; }
+.gx-ok { color: var(--gx-accent); }
+.gx-warn { color: var(--gx-warn); }
+.gx-bad { color: var(--gx-bad); }
+.gx-dim { color: var(--gx-ink-dim); }
+.gx-faint { color: var(--gx-ink-faint); }
+
+.gx-bar {
+  height: 6px;
+  background: var(--gx-line-soft);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.gx-bar > i { display: block; height: 100%; background: var(--gx-accent-dim); }
+.gx-bar.is-warn > i { background: var(--gx-warn); }
+.gx-bar.is-bad > i { background: var(--gx-bad); }
+
+.gx-list { display: grid; gap: var(--gx-sp-1); }
+.gx-list .gx-item {
+  display: flex;
+  gap: var(--gx-sp-2);
+  padding: var(--gx-sp-1) var(--gx-sp-2);
+  border-radius: var(--gx-sp-1);
+  border: 1px solid transparent;
+}
+.gx-list .gx-item:hover { border-color: var(--gx-line); background: rgba(94, 242, 160, 0.03); }
+
+.gx-empty { color: var(--gx-ink-faint); font-style: italic; }
+.gx-msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.55;
+  padding: var(--gx-sp-1) var(--gx-sp-2);
+  border-left: 2px solid var(--gx-line);
+  color: var(--gx-ink-dim);
+}
+.gx-msg.gx-ok { border-left-color: var(--gx-accent); color: var(--gx-ink); }
+.gx-msg.gx-bad { border-left-color: var(--gx-bad); color: var(--gx-bad); }
+
+/* \u7A84\u5C4F\uFF1A\u5361\u7247\u53E0\u6210\u4E00\u5217\uFF0C\u9876\u680F\u5141\u8BB8\u6362\u884C\uFF0C\u6570\u5B57\u4E0D\u6324\u5728\u4E00\u8D77\u3002 */
+@media (max-width: 760px) {
+  .gx-body { grid-template-columns: 1fr; }
+  .gx-topbar { flex-wrap: wrap; gap: var(--gx-sp-1); }
+  .gx-row { flex-wrap: wrap; }
+  .gx-bar { width: 48px; }
+  .gx-view { min-width: 0; }
+}
+`;
+var installed = false;
+function ensureStyles(owner) {
+  if (installed || owner.querySelector("style[data-gx-tokens]")) return;
+  const style = owner.createElement("style");
+  style.setAttribute("data-gx-tokens", "1");
+  style.textContent = TOKENS;
+  owner.head.append(style);
+  installed = true;
+}
+
+// src/webui/shell.ts
+var EMPTY = "\u8FD8\u6CA1\u6709\u5B58\u6863 \u2014\u2014 \u53BB\u6700\u540E\u90A3\u4E2A\u300C\u5B58\u6863\u300D\u9875\u7B7E\u65B0\u5EFA\u4E00\u5C40\u3002";
+function emptyText(state) {
+  if (state && state.loadError) return `\u5B58\u6863\u8BFB\u4E0D\u8FDB\u6765\uFF1A${state.loadError}\uFF08\u539F\u6587\u4EF6\u5DF2\u5907\u4EFD\u4E3A game.json.before-repair\uFF09`;
+  return EMPTY;
+}
+function num(value, digits = 0) {
+  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+function bar(ratio, tone) {
+  const wrap = document.createElement("span");
+  wrap.className = tone ? `gx-bar is-${tone}` : "gx-bar";
+  wrap.style.width = "72px";
+  wrap.style.display = "inline-block";
+  wrap.style.verticalAlign = "middle";
+  const fill = document.createElement("i");
+  fill.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+  wrap.append(fill);
+  return wrap;
+}
+function createShell(ctx, opts) {
+  ensureStyles(ctx.root.ownerDocument);
+  const sheet = ctx.ui.sheet({ title: opts.title, desc: opts.desc });
+  const root = ctx.ui.h("div", "gx");
+  const topbar = ctx.ui.h("div", "gx-topbar");
+  const body = ctx.ui.h("div", "gx-body");
+  root.append(topbar, body);
+  sheet.body.append(root);
+  ctx.root.append(sheet.el);
+  const clock = ctx.ui.h("span", "gx-num");
+  const where = ctx.ui.h("span", "gx-dim");
+  const energy = ctx.ui.h("span", "gx-num");
+  const energyBar = ctx.ui.h("span");
+  const tungsten = ctx.ui.h("span", "gx-num");
+  const credits = ctx.ui.h("span", "gx-num");
+  const ship = ctx.ui.h("span", "gx-num");
+  const charter = ctx.ui.h("span", "gx-num");
+  const speedWrap = ctx.ui.h("span", "gx-row");
+  speedWrap.style.gap = "4px";
+  speedWrap.style.alignItems = "center";
+  const speedInput = ctx.ui.h("input");
+  speedInput.type = "range";
+  speedInput.min = "1";
+  speedInput.max = "200";
+  speedInput.step = "1";
+  speedInput.value = "1";
+  speedInput.style.width = "84px";
+  const speedLabel = ctx.ui.h("span", "gx-num gx-dim", "\xD71");
+  speedInput.onchange = async () => {
+    const value = Number(speedInput.value) || 1;
+    speedLabel.textContent = `\xD7${value}`;
+    try {
+      await ctx.invoke("speed", [value]);
+    } catch {
+      speedLabel.textContent = "\xD7?";
+    }
+    void ctx.refresh();
+  };
+  speedWrap.append(speedInput, speedLabel);
+  topbar.append(clock, where, ctx.ui.h("span", "gx-spacer"), speedWrap, energy, energyBar, tungsten, credits, ship, charter);
+  return {
+    root,
+    body,
+    updateLoose(info) {
+      clock.textContent = info.time ?? "\u2014";
+      where.textContent = info.where ?? "";
+      if (info.energyKj !== void 0) {
+        const capacity = info.capacityKj ?? 3e5;
+        const ratio = capacity > 0 ? info.energyKj / capacity : 0;
+        energy.textContent = `\u26A1 ${num(info.energyKj)} / ${num(capacity)} kJ`;
+        energy.className = ratio < 0.1 ? "gx-num gx-bad" : ratio < 0.25 ? "gx-num gx-warn" : "gx-num";
+        energyBar.replaceChildren(bar(ratio, ratio < 0.1 ? "bad" : ratio < 0.25 ? "warn" : void 0));
+      }
+      if (info.tungsten !== void 0) tungsten.textContent = `\u94A8 ${num(info.tungsten)}`;
+      if (info.speed !== void 0) {
+        speedInput.value = String(info.speed);
+        const minutes = info.baseMinutesPerHomeHour !== void 0 ? info.baseMinutesPerHomeHour / info.speed : void 0;
+        speedLabel.textContent = minutes === void 0 ? `\xD7${info.speed}` : `\xD7${info.speed} \xB7 ${minutes < 1 ? minutes.toFixed(2) : Math.round(minutes)} \u5206/\u65F6`;
+      }
+      if (info.credits !== void 0) credits.textContent = `\u{1F4B3} ${num(info.credits)}`;
+    },
+    update(state) {
+      if (!state || state.locked) {
+        clock.textContent = "\u672A\u521B\u4E16";
+        where.textContent = "";
+        energy.textContent = "";
+        tungsten.textContent = "";
+        credits.textContent = "";
+        ship.textContent = "";
+        charter.textContent = "";
+        energyBar.replaceChildren();
+        return;
+      }
+      clock.textContent = state.game?.time ?? "\u2014";
+      where.textContent = state.game?.where ?? "";
+      const power = state.power;
+      if (power) {
+        const ratio = power.capacityKj > 0 ? power.energyKj / power.capacityKj : 0;
+        energy.textContent = `\u26A1 ${num(power.energyKj)} / ${num(power.capacityKj)} kJ`;
+        energy.className = ratio < 0.1 ? "gx-num gx-bad" : ratio < 0.25 ? "gx-num gx-warn" : "gx-num";
+        energyBar.replaceChildren(bar(ratio, ratio < 0.1 ? "bad" : ratio < 0.25 ? "warn" : void 0));
+        tungsten.textContent = `\u94A8 ${num(power.tungsten)}`;
+        credits.textContent = `\u{1F4B3} ${num(power.credits)}`;
+        credits.className = "gx-num gx-dim";
+        const charterInfo = power.charter;
+        if (charterInfo) {
+          const speed = charterInfo.speed ?? 1;
+          speedInput.value = String(speed);
+          const minutes = charterInfo.baseMinutesPerHomeHour !== void 0 ? charterInfo.baseMinutesPerHomeHour / speed : void 0;
+          speedLabel.textContent = minutes === void 0 ? `\xD7${speed}` : `\xD7${speed} \xB7 ${minutes < 1 ? minutes.toFixed(3) : minutes.toFixed(1)} \u5206/\u65F6`;
+        }
+        const sleepers = power.ship?.sleepers ?? 0;
+        if (sleepers > 0) {
+          const hours = power.ship?.hoursLeft;
+          ship.textContent = hours === null || hours === void 0 ? `\u8231\u5185 ${sleepers} \u4EBA` : `\u8231\u5185 ${sleepers} \u4EBA \xB7 \u7EA6 ${num(hours)} \u65F6`;
+          ship.className = hours !== null && hours !== void 0 && hours < 72 ? "gx-num gx-warn" : "gx-num gx-dim";
+        } else {
+          ship.textContent = "";
+        }
+      } else {
+        energy.textContent = "";
+        energyBar.replaceChildren();
+        tungsten.textContent = "";
+        credits.textContent = "";
+        ship.textContent = "";
+      }
+      const c = state.power?.charter;
+      if (c?.charter === "tourism") {
+        charter.textContent = `\u65C5\u6E38 \xB7 \u77E5\u540D\u5EA6 ${num(c.reputation ?? 0, 0)}`;
+        charter.className = "gx-num gx-ok";
+      } else if (c?.charter === "tech") {
+        charter.textContent = `\u79D1\u6280 \xB7 \u7B97\u529B ${num(c.compute ?? 0, 1)}`;
+        charter.className = "gx-num gx-ok";
+      } else {
+        charter.textContent = "";
+      }
+    }
+  };
+}
+
+// src/webui/panels/overview.ts
+function num2(value, digits = 0) {
+  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+function card(ctx, title) {
+  const el = ctx.ui.h("div", "gx-card");
+  const body = ctx.ui.h("div");
+  el.append(ctx.ui.h("div", "gx-card-head", title), body);
+  return { el, body };
+}
+function row(ctx, key, value, tone) {
+  const line = ctx.ui.h("div", "gx-row");
+  line.append(ctx.ui.h("span", "gx-k", key), ctx.ui.h("span", "gx-gap"), ctx.ui.h("span", tone ? `gx-v ${tone}` : "gx-v", value));
+  return line;
+}
+function nextSteps(state) {
+  const out = [];
+  const power = state.power;
+  const ship = power?.ship;
+  const people = state.habitats.reduce((sum, h) => sum + h.awake, 0);
+  const pending = state.protocol ? state.protocol.total - state.protocol.done : 0;
+  if (ship && ship.sleepers > 0 && ship.hoursLeft !== null && ship.hoursLeft < 72) {
+    out.push({ label: `\u7740\u9646\u8231\u7684\u6C27\u6C14\u53EA\u591F\u7EA6 ${num2(ship.hoursLeft)} \u6BCD\u661F\u65F6\uFF1A\u5148\u53BB\u79CD\u3001\u53BB\u4EA7\u6C27`, tone: "bad", tab: "\u519C\u573A" });
+  }
+  if (power && power.capacityKj > 0 && power.energyKj < power.capacityKj * 0.1) {
+    out.push({ label: "\u7535\u5FEB\u89C1\u5E95\uFF1A\u624B\u6447\u4E00\u4E0B\uFF0C\u6216\u8005\u53BB\u300C\u5DE5\u4E1A\u300D\u5EFA\u592A\u9633\u80FD\u5E06", tone: "bad", tab: "\u5DE5\u4E1A" });
+  }
+  if (people === 0 && ship && ship.sleepers > 0) {
+    out.push({ label: "\u8FD8\u6CA1\u53EB\u9192\u4EFB\u4F55\u4EBA\uFF1A\u534F\u8BAE\u6E05\u5355\u5728\u300C\u534F\u8BAE\u300D\u9875", tone: "warn", tab: "\u534F\u8BAE" });
+  }
+  if (state.buildQueueFull) {
+    out.push({ label: "\u65BD\u5DE5\u961F\u5217\u6EE1\u4E86\uFF1A\u53BB\u300C\u5347\u7EA7\u300D\u4FEE\u5B50\u4EE3\u7406", tone: "warn", tab: "\u5347\u7EA7" });
+  }
+  if (pending > 0) {
+    out.push({ label: `\u534F\u8BAE\u8FD8\u5DEE ${pending} \u9879\uFF08\u5171 ${state.protocol?.total ?? 0}\uFF09`, tone: "warn", tab: "\u534F\u8BAE" });
+  }
+  if (out.length === 0) out.push({ label: "\u6CA1\u6709\u5361\u4F4F\u7684\u4E8B\uFF1A\u53EF\u4EE5\u53BB\u300C\u5730\u8868\u300D\u770B\u770B\u5730\u56FE\uFF0C\u6216\u8005\u63A8\u4E00\u63A8\u8FDB\u5EA6", tone: "ok", tab: "\u5730\u8868" });
+  return out.slice(0, 4);
+}
+var panel = {
+  async mount(ctx) {
+    const t = text(ctx.language);
+    const shell = createShell(ctx, { title: t.title, desc: t.desc ?? "" });
+    let state = null;
+    const lockedNote = ctx.ui.h("div", "gx-empty");
+    const status = card(ctx, "\u72B6\u51B5");
+    const vital = card(ctx, "\u8981\u7D27\u7684\u6570");
+    const todo = card(ctx, "\u4E0B\u4E00\u6B65");
+    shell.body.append(lockedNote, status.el, vital.el, todo.el);
+    const render = () => {
+      shell.update(state);
+      if (!state || state.locked) {
+        lockedNote.textContent = emptyText(state);
+        status.body.replaceChildren();
+        vital.body.replaceChildren();
+        todo.body.replaceChildren();
+        return;
+      }
+      lockedNote.textContent = "";
+      status.body.replaceChildren(
+        row(ctx, "\u65F6\u95F4", state.game?.time ?? "\u2014"),
+        row(ctx, "\u4F4D\u7F6E", state.game?.where ?? "\u2014"),
+        row(ctx, "\u72B6\u6001", state.game?.transit ?? "\u6CA1\u6709\u5728\u79FB\u52A8", state.game?.transit ? "gx-warn" : "gx-ok"),
+        row(ctx, "\u5386\u6CD5", state.game?.calendar ?? "\u2014", "gx-dim")
+      );
+      const power = state.power;
+      const ship = power?.ship;
+      const people = state.habitats.reduce((sum, h) => sum + h.awake, 0);
+      const capacity = state.habitats.length * 20;
+      const food = ship ? `${num2(ship.food, 1)} kg` : "\u2014";
+      const water = ship ? `${num2(ship.water, 0)} L` : "\u2014";
+      const oxygen = ship ? `${num2(ship.oxygen, 1)} kg` : "\u2014";
+      const hours = ship?.hoursLeft;
+      const grid = ctx.ui.h("div", "gx-grid-3");
+      const cells = [
+        ["\u5E38\u4F4F\u4EBA\u53E3", `${num2(people)} / ${num2(capacity)}`, people === 0 ? "gx-warn" : "gx-ok"],
+        ["\u7740\u9646\u8231 \xB7 \u7CAE", food],
+        ["\u7740\u9646\u8231 \xB7 \u6C34", water],
+        ["\u7740\u9646\u8231 \xB7 \u6C27", oxygen],
+        ["\u8FD8\u80FD\u6491", hours === null || hours === void 0 ? "\u2014" : `${num2(hours)} \u6BCD\u661F\u65F6`, hours !== null && hours !== void 0 && hours < 72 ? "gx-bad" : void 0],
+        ["\u7535", power ? `${num2(power.energyKj)} kJ` : "\u2014"],
+        ["\u4FE1\u7528\u70B9", power ? num2(power.credits) : "\u2014"],
+        ["\u94A8", power ? `${num2(power.tungsten)} \u4EFD` : "\u2014"]
+      ];
+      for (const [k, v, tone] of cells) {
+        const cell = ctx.ui.h("div");
+        cell.append(row(ctx, k, v, tone));
+        grid.append(cell);
+      }
+      vital.body.replaceChildren(grid);
+      const steps = nextSteps(state);
+      const list = ctx.ui.h("div", "gx-list");
+      for (const step of steps) {
+        const item = ctx.ui.h("div", "gx-item");
+        const light = step.tone === "bad" ? "gx-bad" : step.tone === "warn" ? "gx-warn" : "gx-ok";
+        item.append(ctx.ui.h("span", light, "\u25CF"), ctx.ui.h("span", "gx-num", step.label), ctx.ui.h("span", "gx-gap"), ctx.ui.h("span", "gx-faint", step.tab));
+        list.append(item);
+      }
+      todo.body.replaceChildren(list);
+    };
+    const load = async () => {
+      state = await ctx.invoke("state", []);
+      render();
+    };
+    await load();
+  }
+};
+var overview_default = panel;
+
+// src/webui/ui-kit.ts
 var BIOME_COLORS = [
   "#1f6fb2",
   // 0 海洋
@@ -401,29 +866,15 @@ function yPx(latDeg, height) {
 function xPx(lonDeg, width) {
   return (lonDeg + 180) / 360 * width;
 }
-function pxToLatDeg(y, height) {
-  const half = mercY(MERC_LIMIT_DEG);
-  const m = half - y / height * 2 * half;
-  return (2 * Math.atan(Math.exp(m)) - Math.PI / 2) * 180 / Math.PI;
+function errorText(error) {
+  return error instanceof Error ? error.message : String(error);
 }
-function pxToLonDeg(x, width) {
-  return x / width * 360 - 180;
-}
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-function field(ui, label, input, hint) {
-  const row = ui.h("div");
-  row.style.display = "grid";
-  row.style.gap = "4px";
-  const help = ui.h("span", "muted", hint);
-  help.style.fontSize = "12px";
-  row.append(ui.h("label", "muted", label), input, help);
-  return row;
-}
+
+// src/webui/map.ts
 var WIDTH = 720;
 var HEIGHT = 360;
-function drawMap(canvas, map) {
+var PX_PER_DEG = HEIGHT / 180;
+function drawMap(canvas, map, territories = []) {
   const context = canvas.getContext("2d");
   if (!context) return;
   context.clearRect(0, 0, WIDTH, HEIGHT);
@@ -470,1019 +921,939 @@ function drawMap(canvas, map) {
     context.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
     context.globalAlpha = 1;
   }
+  for (const territory of territories) {
+    const cx = xPx(territory.lonDeg, WIDTH);
+    const cy = yPx(territory.latDeg, HEIGHT);
+    const radius = Math.max(2, territory.radiusKm / 111 * PX_PER_DEG);
+    context.beginPath();
+    context.arc(cx, cy, radius, 0, Math.PI * 2);
+    context.strokeStyle = "#ffb454";
+    context.globalAlpha = 0.7;
+    context.lineWidth = 1;
+    context.stroke();
+    context.globalAlpha = 1;
+  }
 }
-var panel = {
+
+// src/webui/panels/surface.ts
+var panel2 = {
   async mount(ctx) {
     const t = text(ctx.language);
-    const sheet = ctx.ui.sheet({ title: t.title, desc: t.desc });
-    const box = ctx.ui.h("div");
-    sheet.body.append(box);
-    ctx.root.append(sheet.el);
+    const shell = createShell(ctx, { title: t.mapTitle, desc: "\u5730\u56FE\u3001\u770B\u9644\u8FD1\u3001\u8D70\u4E00\u6BB5\u3001\u7B49\u4E00\u4F1A\u3002\u8DE8\u661F\u822A\u884C\u5728\u300C\u5DE5\u4E1A\u300D\u9875\u7B7E\u3002" });
     let state = null;
-    let busy = false;
-    const form = ctx.ui.h("div");
-    form.style.display = "grid";
-    form.style.gap = "12px";
-    const seedInput = ctx.ui.input({ type: "text", value: "20261111" });
-    seedInput.placeholder = t.seedHint;
-    const doc = ctx.root.ownerDocument;
-    const starRow = ctx.ui.h("div");
-    starRow.style.display = "grid";
-    starRow.style.gap = "4px";
-    const starLabel = ctx.ui.h("div", "mono");
-    starLabel.style.fontSize = "12px";
-    const starInput = doc.createElement("input");
-    starInput.type = "range";
-    starInput.min = "0.15";
-    starInput.max = "2";
-    starInput.step = "0.05";
-    starInput.value = "1";
-    starInput.style.width = "100%";
-    starRow.append(starInput, starLabel);
-    const setStarMass = (value) => {
-      starInput.value = String(value);
-      starLabel.textContent = t.starMassValue(Number(starInput.value));
-    };
-    starInput.addEventListener("input", () => setStarMass(Number(starInput.value)));
-    setStarMass(1);
-    const starNameInput = ctx.ui.input({ type: "text", value: "\u6052\u661F" });
-    const homeNameInput = ctx.ui.input({ type: "text", value: "\u6BCD\u661F" });
-    starNameInput.maxLength = 12;
-    homeNameInput.maxLength = 12;
-    const hint = ctx.ui.h("p", "muted", t.hint);
-    hint.style.fontSize = "12px";
-    const preview = ctx.ui.h("p", "muted", "");
-    preview.style.fontSize = "12px";
-    let previewTimer;
-    const refreshPreview = async () => {
-      try {
-        const shape = await ctx.invoke(
-          "preview",
-          [seedInput.value]
-        );
-        preview.textContent = t.shapePreview(shape.planetCount, shape.maxMoons, shape.minPlanets, shape.maxPlanets);
-      } catch {
-        preview.textContent = "";
-      }
-    };
-    const refreshHint = () => {
-      const raw = seedInput.value.trim();
-      hint.textContent = !raw ? t.hint : /^\d{1,15}$/.test(raw) ? t.hintNumber : t.hintText;
-      if (previewTimer !== void 0) window.clearTimeout(previewTimer);
-      previewTimer = window.setTimeout(() => void refreshPreview(), 180);
-    };
-    seedInput.addEventListener("input", refreshHint);
-    const createButton = ctx.ui.button(t.create, { variant: "primary", size: "md", onClick: () => void create() });
-    form.append(
-      field(ctx.ui, t.seed, seedInput, t.seedHint),
-      field(ctx.ui, t.star, starRow, "0.15 \u2026 2.0 \u592A\u9633\u8D28\u91CF"),
-      field(ctx.ui, t.starName, starNameInput, "\u5F00\u5C40\u5B9A\uFF0C\u4E4B\u540E\u4E00\u76F4\u6CBF\u7528"),
-      field(ctx.ui, t.homeName, homeNameInput, "\u6700\u5B9C\u5C45\u7684\u90A3\u9897\u884C\u661F\uFF0C\u4E4B\u540E\u4E00\u76F4\u6CBF\u7528"),
-      createButton,
-      hint,
-      preview
-    );
-    const lockedBox = ctx.ui.h("div");
-    lockedBox.style.display = "grid";
-    lockedBox.style.gap = "10px";
-    const badge = ctx.ui.pill(t.locked, "on");
-    const clockBox = ctx.ui.h("div", "muted");
-    clockBox.style.fontSize = "13px";
-    clockBox.style.lineHeight = "1.6";
-    clockBox.hidden = true;
-    const waitRow = ctx.ui.h("div");
-    waitRow.style.display = "flex";
-    waitRow.style.flexWrap = "wrap";
-    waitRow.style.gap = "6px";
-    waitRow.style.marginTop = "4px";
-    for (const [label, until] of [
-      [t.waitDawn, "dawn"],
-      [t.waitDusk, "dusk"],
-      [t.waitNoon, "noon"],
-      [t.waitRipe, "ripe"],
-      [t.waitBuilt, "built"],
-      [t.waitArrive, "arrive"]
-    ]) {
-      waitRow.append(
-        ctx.ui.button(label, {
-          size: "sm",
-          onClick: () => {
-            void (async () => {
-              try {
-                const result = await ctx.invoke("wait", [{ until }]);
-                state = result.state;
-                waitNote.textContent = result.text;
-                render();
-                void ctx.refresh();
-              } catch (error) {
-                ctx.ui.toast(errorText(error), "bad");
-              }
-            })();
-          }
-        })
-      );
-    }
-    const waitNote = ctx.ui.h("div", "muted");
-    waitNote.style.fontSize = "12px";
-    waitRow.append(waitNote);
-    const cardPre = ctx.ui.h("pre");
-    cardPre.style.whiteSpace = "pre-wrap";
-    cardPre.style.fontSize = "13px";
-    cardPre.style.lineHeight = "1.55";
-    const resetButton = ctx.ui.button(t.reset, { variant: "danger", size: "sm", onClick: () => void reset() });
-    const powerBox = ctx.ui.h("div");
-    powerBox.style.display = "grid";
-    powerBox.style.gap = "6px";
-    const energyLine = ctx.ui.h("div", "mono");
-    const shipLineEl = ctx.ui.h("div", "mono");
-    shipLineEl.style.fontSize = "12px";
-    const genButton = ctx.ui.button(t.generator, { size: "sm", variant: "primary", onClick: () => void press() });
-    const genHint = ctx.ui.h("div", "muted", t.generatorHint);
-    genHint.style.fontSize = "12px";
-    const gridLineEl = ctx.ui.h("div", "muted");
-    gridLineEl.style.fontSize = "12px";
-    const gridRow = ctx.ui.h("div");
-    gridRow.style.display = "flex";
-    gridRow.style.gap = "6px";
-    const gridInButton = ctx.ui.button(t.gridIn, { size: "sm", onClick: () => void gridMove("grid_in") });
-    const gridOutButton = ctx.ui.button(t.gridOut, { size: "sm", onClick: () => void gridMove("grid_out") });
-    gridRow.append(gridInButton, gridOutButton);
-    powerBox.append(ctx.ui.h("h3", void 0, t.powerTitle), energyLine, shipLineEl, genButton, genHint, gridLineEl, gridRow);
-    const monitorBox = ctx.ui.h("div");
-    monitorBox.style.display = "grid";
-    monitorBox.style.gap = "6px";
-    const monitorLine = ctx.ui.h("div", "muted");
-    const monitorButton = ctx.ui.button(t.monitorInstall, { size: "sm", onClick: () => void installMonitor() });
-    monitorBox.append(ctx.ui.h("h3", void 0, t.monitorTitle), monitorLine, monitorButton);
-    const floraBox = ctx.ui.h("div");
-    floraBox.style.display = "grid";
-    floraBox.style.gap = "6px";
-    const floraLine = ctx.ui.h("div", "muted");
-    floraLine.style.fontSize = "12px";
-    const floraMsg = ctx.ui.h("pre", "mono");
-    floraMsg.hidden = true;
-    floraMsg.style.whiteSpace = "pre-wrap";
-    const floraSites = ctx.ui.h("div");
-    floraSites.style.display = "grid";
-    floraSites.style.gap = "4px";
-    const floraInv = ctx.ui.h("div", "muted");
-    floraInv.style.fontSize = "12px";
-    const floraBags = ctx.ui.h("div");
-    floraBags.style.display = "grid";
-    floraBags.style.gap = "4px";
-    const siteButton = ctx.ui.button(t.floraSite, { size: "sm", onClick: () => void floraDo("site", []) });
-    const floraTrade = ctx.ui.h("div");
-    floraTrade.style.display = "flex";
-    floraTrade.style.gap = "6px";
-    floraTrade.style.flexWrap = "wrap";
-    floraBox.append(
-      ctx.ui.h("h3", void 0, t.floraTitle),
-      floraLine,
-      siteButton,
-      floraTrade,
-      floraSites,
-      floraMsg,
-      floraInv,
-      floraBags
-    );
-    const mapBox = ctx.ui.h("div");
-    mapBox.style.display = "grid";
-    mapBox.style.gap = "8px";
-    const mapHead = ctx.ui.h("h3", void 0, t.mapTitle);
-    const mapDesc = ctx.ui.h("p", "muted", t.mapDesc);
-    mapDesc.style.fontSize = "12px";
-    const pickRow = ctx.ui.h("div");
-    pickRow.style.display = "grid";
-    pickRow.style.gap = "4px";
-    const pick = ctx.ui.select({ options: [] });
-    const canvas = ctx.ui.h("canvas");
-    canvas.width = WIDTH;
-    canvas.height = HEIGHT;
-    canvas.style.width = "100%";
-    canvas.style.height = "auto";
-    canvas.style.imageRendering = "auto";
-    const readout = ctx.ui.h("div", "muted");
-    readout.style.fontSize = "12px";
-    const oceanLine = ctx.ui.h("div", "muted");
-    oceanLine.style.fontSize = "12px";
-    pickRow.append(ctx.ui.h("label", "muted", t.mapPick), pick);
-    const chartRow = ctx.ui.h("div");
-    chartRow.style.display = "flex";
-    chartRow.style.gap = "6px";
-    chartRow.style.flexWrap = "wrap";
-    chartRow.hidden = true;
-    mapBox.append(mapHead, mapDesc, pickRow, chartRow, canvas, readout, oceanLine);
-    const planBox = ctx.ui.h("div");
-    planBox.style.display = "grid";
-    planBox.style.gap = "8px";
-    const travelRow = ctx.ui.h("div");
-    travelRow.style.display = "flex";
-    travelRow.style.gap = "6px";
-    travelRow.style.alignItems = "center";
-    travelRow.style.flexWrap = "wrap";
-    const latInput = ctx.ui.input({ type: "number", value: "0" });
-    latInput.step = "0.1";
-    latInput.style.width = "88px";
-    const lonInput = ctx.ui.input({ type: "number", value: "0" });
-    lonInput.step = "0.1";
-    lonInput.style.width = "88px";
-    const goButton = ctx.ui.button(t.travelGo, { size: "sm", variant: "primary", onClick: () => void travel() });
-    travelRow.append(
-      ctx.ui.h("span", "muted", t.travelTitle),
-      ctx.ui.h("span", "muted", "\u7EAC\u5EA6"),
-      latInput,
-      ctx.ui.h("span", "muted", "\u7ECF\u5EA6"),
-      lonInput,
-      goButton
-    );
-    const travelHintEl = ctx.ui.h("div", "muted", t.travelHint);
-    travelHintEl.style.fontSize = "12px";
-    const lookRow = ctx.ui.h("div");
-    lookRow.style.display = "flex";
-    lookRow.style.gap = "6px";
-    lookRow.style.alignItems = "center";
-    const lookButton = ctx.ui.button(t.lookHere, { size: "sm", onClick: () => void lookAroundPanel() });
-    const veinsButton = ctx.ui.button(t.veinsHere, { size: "sm", onClick: () => void veinsScan() });
-    const surveyButton = ctx.ui.button(t.surveyHere, { size: "sm", onClick: () => void surveyGround() });
-    lookRow.append(lookButton, veinsButton, surveyButton, ctx.ui.h("span", "muted", t.lookHint));
-    const lookPre = ctx.ui.h("pre");
-    lookPre.style.whiteSpace = "pre-wrap";
-    lookPre.style.fontSize = "12px";
-    lookPre.style.margin = "0";
-    lookPre.hidden = true;
-    const buildRow = ctx.ui.h("div");
-    buildRow.style.display = "flex";
-    buildRow.style.gap = "6px";
-    buildRow.style.alignItems = "center";
-    buildRow.style.flexWrap = "wrap";
-    const buildSelect = ctx.ui.select({
-      options: [
-        { value: "greenhouse", label: "\u6E29\u5BA4\u6838\u5FC3" },
-        { value: "cooler", label: "\u5236\u51B7\u6838\u5FC3" },
-        { value: "heater", label: "\u5236\u70ED\u6838\u5FC3" },
-        { value: "realism", label: "\u62DF\u771F\u6838\u5FC3" },
-        { value: "pump", label: "\u6C34\u6CF5" },
-        { value: "warehouse", label: "\u4ED3\u5E93" },
-        { value: "drone_cluster", label: "\u65E0\u4EBA\u673A\u96C6\u7FA4" },
-        { value: "rocket", label: "\u8FD0\u8F7D\u706B\u7BAD" },
-        { value: "biome_changer", label: "\u7FA4\u7CFB\u6539\u53D8\u5668" },
-        { value: "miner", label: "\u91C7\u77FF\u673A" },
-        { value: "rectifier", label: "\u6574\u6D41\u7535\u5854" },
-        { value: "terminal", label: "\u4EA4\u6613\u7EC8\u7AEF" },
-        { value: "storage_terminal", label: "\u4ED3\u50A8\u7EC8\u7AEF" },
-        { value: "arm", label: "\u673A\u68B0\u81C2" },
-        { value: "duty", label: "\u503C\u73ED\u7EC8\u7AEF" },
-        { value: "sail", label: "\u592A\u9633\u80FD\u5E06" },
-        { value: "counter", label: "\u51CC\u65E5\u8BA1\u6570\u5668" },
-        { value: "kiln", label: "\u70AD\u5316\u7089" },
-        { value: "purifier", label: "\u51C0\u5316\u5668" },
-        { value: "sealer", label: "\u5C01\u88C5\u5668" },
-        { value: "atmo_extractor", label: "\u5927\u6C14\u63D0\u53D6\u5668" },
-        { value: "habitat", label: "\u5C45\u6240" },
-        { value: "mutation_room", label: "\u8F90\u5C04\u8BF1\u53D8\u5BA4" },
-        { value: "cold_store", label: "\u51B7\u5E93" },
-        { value: "inert_room", label: "\u60F0\u6027\u6C14\u4F53\u5BA4" },
-        { value: "planter", label: "\u79CD\u690D\u76C6" },
-        { value: "carrier", label: "\u7A7A\u5929\u6BCD\u8230" },
-        { value: "wind", label: "\u98CE\u529B\u53D1\u7535\u7AD9" },
-        { value: "fire", label: "\u706B\u529B\u53D1\u7535\u7AD9" },
-        { value: "converter", label: "\u6C14\u6DB2\u8F6C\u6362\u673A" }
-      ]
-    });
-    const buildButton = ctx.ui.button(t.buildHere, { size: "sm", variant: "primary", onClick: () => void buildHere() });
-    const siteButton2 = ctx.ui.button(t.buildSite, { size: "sm", onClick: () => void floraDo("site", []) });
-    buildRow.append(buildSelect, buildButton, siteButton2);
-    const buildLine = ctx.ui.h("div", "muted");
-    buildLine.style.fontSize = "12px";
-    const detailBox = ctx.ui.h("div", "card");
-    detailBox.style.display = "grid";
-    detailBox.style.gap = "4px";
-    detailBox.hidden = true;
-    const detailHead = ctx.ui.h("div", "mono");
-    const detailBody = ctx.ui.h("div", "muted");
-    detailBody.style.fontSize = "12px";
-    detailBody.style.whiteSpace = "pre-wrap";
-    const detailActions = ctx.ui.h("div");
-    detailActions.style.display = "flex";
-    detailActions.style.gap = "6px";
-    detailBox.append(detailHead, detailBody, detailActions);
-    planBox.append(travelRow, travelHintEl, lookRow, lookPre, ctx.ui.h("h3", void 0, t.buildTitle), buildRow, buildLine, detailBox);
-    const storeBox = ctx.ui.h("div");
-    storeBox.style.display = "grid";
-    storeBox.style.gap = "6px";
-    const storeList = ctx.ui.h("pre", "mono");
-    storeList.style.fontSize = "12px";
-    storeList.style.whiteSpace = "pre-wrap";
-    storeList.style.margin = "0";
-    const storeRows = ctx.ui.h("div");
-    storeRows.style.display = "grid";
-    storeRows.style.gap = "4px";
-    storeBox.append(
-      ctx.ui.h("h3", void 0, t.storeTitle),
-      ctx.ui.button(t.storeRefresh, { size: "sm", onClick: () => void refreshStore() }),
-      storeList,
-      storeRows
-    );
-    lockedBox.append(badge, clockBox, waitRow, powerBox, monitorBox, floraBox, storeBox, cardPre, mapBox, planBox, resetButton);
-    const status = ctx.ui.msgline(t.loading);
-    box.append(form, lockedBox, status);
-    let seeded = false;
+    let bodyKey = "";
     let map = null;
-    let mapKey = null;
-    let selectedId = null;
-    let cooldownMs = 0;
-    const paint = () => {
-      if (!map) return;
-      drawMap(canvas, map);
-      const context = canvas.getContext("2d");
-      if (!context || mapKey === null || state?.location?.bodyKey !== mapKey) return;
-      for (const site of state?.flora?.sites ?? []) {
-        const p = { x: xPx(site.lonDeg, WIDTH), y: yPx(site.latDeg, HEIGHT) };
-        context.strokeStyle = "#ffffff";
-        context.lineWidth = 1.5;
-        context.strokeRect(p.x - 4, p.y - 4, 8, 8);
-      }
-      for (const structure of state?.structures ?? []) {
-        const p = { x: xPx(structure.lonDeg, WIDTH), y: yPx(structure.latDeg, HEIGHT) };
-        context.fillStyle = structure.id === selectedId ? "#ffd166" : "#ffffff";
-        context.strokeStyle = "#1a1a1a";
-        context.lineWidth = 1.5;
-        if (structure.kind === "arm") {
-          context.fillRect(p.x - 5, p.y - 5, 10, 10);
-          context.strokeRect(p.x - 5, p.y - 5, 10, 10);
-          continue;
-        }
-        context.beginPath();
-        context.moveTo(p.x, p.y - 7);
-        context.lineTo(p.x + 7, p.y);
-        context.lineTo(p.x, p.y + 7);
-        context.lineTo(p.x - 7, p.y);
-        context.closePath();
-        context.fill();
-        context.stroke();
-      }
+    const empty = ctx.ui.h("div", "gx-empty");
+    const cardMap = ctx.ui.h("div", "gx-card");
+    const cardLook = ctx.ui.h("div", "gx-card");
+    const cardAct = ctx.ui.h("div", "gx-card");
+    const canvas = ctx.ui.h("canvas");
+    canvas.style.width = "100%";
+    canvas.style.imageRendering = "pixelated";
+    canvas.style.borderRadius = "6px";
+    canvas.style.display = "block";
+    const legend = ctx.ui.h("div", "gx-legend");
+    const lookPre = ctx.ui.h("pre", "gx-pre");
+    lookPre.style.display = "none";
+    const picker = ctx.ui.h("div", "gx-chips");
+    const msg = ctx.ui.h("div", "gx-msg");
+    msg.hidden = true;
+    const mapWrap = ctx.ui.h("div", "gx-mapwrap");
+    mapWrap.append(canvas);
+    cardMap.append(ctx.ui.h("div", "gx-card-head", t.mapTitle), picker, legend, mapWrap);
+    cardLook.append(ctx.ui.h("div", "gx-card-head", t.lookHere), lookPre);
+    cardAct.append(ctx.ui.h("div", "gx-card-head", "\u52A8\u4F5C"), msg);
+    shell.body.append(empty, cardMap, cardLook, cardAct);
+    const showMsg = (value, bad = false) => {
+      msg.textContent = value;
+      msg.className = bad ? "gx-msg gx-bad" : "gx-msg gx-ok";
+      msg.hidden = false;
     };
-    const renderPlan = () => {
-      planBox.hidden = !(state?.locked ?? false);
-      if (!state?.locked) return;
-      const builds = state.builds ?? [];
-      buildLine.textContent = `${t.buildSlots} ${builds.length}/${state.buildSlots ?? 1}` + (builds.length === 0 ? ` \xB7 ${t.buildNone}` : "\uFF1A" + builds.map((b) => `${b.label}\uFF08${b.siteKey}\uFF09\u8FD8\u5269 ${b.leftHomeHours.toFixed(1)} \u6BCD\u661F\u65F6`).join("\uFF1B")) + (state.buildQueueFull ? ` \xB7 ${t.buildFull}` : "");
-      const chosen = (state.structures ?? []).find((s) => s.id === selectedId) ?? null;
-      detailBox.hidden = chosen === null;
-      if (!chosen) return;
-      detailHead.textContent = `${t.detailTitle}\uFF1A${chosen.label}\uFF08${chosen.id}\uFF09 \xB7 ${chosen.siteKey}`;
-      const contents = chosen.contents.length === 0 ? t.detailEmpty : chosen.contents.map((c) => `${c.name} ${c.kg} kg`).join("\u3001");
-      detailBody.textContent = `${t.detailContents}\uFF1A${contents}
-${Math.round(chosen.usedKg * 100) / 100} / ${chosen.capKg} kg` + (chosen.armText ? `
-${t.armLine}\uFF1A${chosen.armText}` : "") + (chosen.dutyText ? `
-${t.dutyLine}\uFF1A${chosen.dutyText}` : "") + (chosen.interiorC !== void 0 ? `
-${t.habitatLine}\uFF1A${chosen.interiorC}\u2103\uFF08${chosen.comfort === "ok" ? t.comfortOk : chosen.comfort === "hot" ? t.comfortHot : t.comfortCold}\uFF09` : "") + (chosen.armCycle ? `
-${t.armCycle}` : "");
-      detailActions.replaceChildren(
-        ctx.ui.button(t.detailNear, { size: "sm", onClick: () => void travel(chosen.latDeg + 0.2, chosen.lonDeg + 0.2) }),
-        ctx.ui.button(t.detailDemolish, { size: "sm", variant: "danger", onClick: () => void demolish(chosen.id) }),
-        ctx.ui.button(t.detailClose, { size: "sm", onClick: () => {
-          selectedId = null;
-          paint();
-          renderPlan();
-        } })
-      );
-    };
-    async function goTo(key) {
-      if (busy) return;
-      busy = true;
-      try {
-        state = await ctx.invoke("move", [{ target: key }]);
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function travel(latDeg = Number(latInput.value), lonDeg = Number(lonInput.value)) {
-      if (busy) return;
-      busy = true;
-      try {
-        state = await ctx.invoke("move", [{ latDeg, lonDeg }]);
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function lookAroundPanel() {
-      if (busy) return;
-      busy = true;
-      try {
-        const result = await ctx.invoke("look", []);
-        lookPre.textContent = result.text;
-        lookPre.hidden = false;
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function surveyGround() {
-      if (busy) return;
-      busy = true;
-      try {
-        const result = await ctx.invoke("survey", []);
-        state = result.state;
-        lookPre.textContent = result.text;
-        lookPre.hidden = false;
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.toast(/已经测过|只认第一次/.test(message) ? t.surveyDone : message, "bad");
-      } finally {
-        busy = false;
-      }
-    }
-    async function veinsScan() {
-      if (busy) return;
-      busy = true;
-      try {
-        const result = await ctx.invoke("veins", []);
-        lookPre.textContent = result.text;
-        lookPre.hidden = false;
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function buildHere() {
-      if (busy) return;
-      busy = true;
-      try {
-        const kind = buildSelect.value;
-        if (kind === "sail" || kind === "counter") {
-          const result = await ctx.invoke("install", [{ id: kind }]);
-          state = result.state;
-          ctx.ui.toast(result.text, "ok");
-        } else if (kind === "cooler" || kind === "heater" || kind === "realism") {
-          const result = await ctx.invoke("install", [{ id: kind }]);
-          state = result.state;
-          ctx.ui.toast(result.text, "ok");
-        } else {
-          state = await ctx.invoke("build", [{ kind }]);
-        }
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function demolish(id) {
-      if (busy) return;
-      busy = true;
-      try {
-        state = await ctx.invoke("demolish", [id]);
-        selectedId = null;
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    const renderPower = () => {
-      const power = state?.power ?? null;
-      powerBox.hidden = power === null;
-      if (!power) return;
-      const kj = power.generatorKj ?? 5;
-      const cap = power.capacityKj ?? 1e5;
-      energyLine.textContent = `${t.energy}\uFF1A${power.energyKj.toLocaleString("en-US")} / ${cap.toLocaleString("en-US")} kJ \xB7 ${t.tungsten}\uFF1A${(power.tungsten ?? 0).toLocaleString("en-US")} kg \xB7 ${power.sails} ${"\u53F0\u592A\u9633\u80FD\u5E06"}`;
-      const ship = power.ship;
-      shipLineEl.hidden = !ship || (ship.sleepers ?? 0) <= 0;
-      if (ship) {
-        shipLineEl.textContent = t.shipLine(
-          ship.food,
-          ship.water,
-          ship.oxygen,
-          ship.sleepers,
-          ship.hoursLeft ?? 0
-        );
-      }
-      genButton.disabled = cooldownMs > 0;
-      genButton.textContent = cooldownMs > 0 ? `${t.generatorBusy} ${(cooldownMs / 1e3).toFixed(1)}s` : t.generator.replace("{kj}", String(kj));
-      genHint.textContent = t.generatorHint.replace("{kj}", String(kj));
-      const grid = power.grid;
-      gridLineEl.textContent = grid ? grid.hasTower ? `${t.gridStored} ${grid.storedKj.toLocaleString("en-US")} / ${grid.capacityKj.toLocaleString("en-US")} kJ` + (grid.reachable ? `\uFF08${t.gridReach} ${grid.distanceKm} km\uFF09` : `\uFF08${t.gridFar} ${grid.distanceKm} km \xB7 ${t.gridTowerAt} ${grid.towerSite ?? ""}\uFF09`) : `${t.gridNoTower}` : "";
-      const canTap = grid !== null && grid.hasTower && grid.reachable;
-      gridInButton.disabled = !canTap || grid.storedKj <= 0;
-      gridOutButton.disabled = !canTap || power.energyKj <= 0;
-      gridRow.hidden = !grid || !grid.hasTower;
-    };
-    const renderMonitor = () => {
-      const monitor = state?.monitor ?? null;
-      monitorBox.hidden = monitor === null;
-      if (!monitor) return;
-      const n = monitor.monitored.length;
-      monitorLine.textContent = n === 0 ? t.monitorNone : `${t.monitorCount} ${n} \u4E2A\u5929\u4F53${monitor.starUnlocked ? ` ${t.monitorStar}` : ""}`;
-      monitorButton.hidden = monitor.currentKey === null || monitor.currentMonitored;
-    };
-    const renderFlora = () => {
-      const flora = state?.flora ?? null;
-      floraBox.hidden = flora === null;
-      if (!flora) return;
-      floraLine.textContent = `${flora.credits} \u4FE1\u7528\u70B9\uFF08${flora.tier}\uFF09 \xB7 ${Math.floor(flora.energyKj).toLocaleString("en-US")} kJ \xB7 ` + (flora.shopWindow || (flora.shopOpen ? t.floraShop : t.floraClosed));
-      floraSites.replaceChildren();
-      if (flora.sites.length === 0) {
-        floraSites.append(ctx.ui.h("div", "muted", t.floraNone));
-      }
-      for (const site of flora.sites) {
-        const row = ctx.ui.h("div");
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
-        row.append(
-          ctx.ui.h(
-            "span",
-            "mono",
-            `${site.key} \xB7 ${site.kind} \xB7 ${t.floraWet} ${site.wetness == null ? "\u2014" : `${Math.round(site.wetness * 100)}%`} \xB7 ${t.floraFert} ${site.fertility == null ? "\u2014" : `${Math.round(site.fertility * 100)}%`} \xB7 ${site.plants} \u682A/\u7FA4`
-          )
-        );
-        if (site.ripe > 0) {
-          row.append(
-            ctx.ui.button(`${t.floraHarvest} ${site.ripe}`, { size: "sm", variant: "primary", onClick: () => void floraDo("harvest", [site.key]) })
-          );
-        }
-        floraSites.append(row);
-      }
-      for (const planter of flora.planters ?? []) {
-        const row = ctx.ui.h("div");
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
-        const stateLine = planter.powered ? t.planterOk : t.planterOff;
-        row.append(ctx.ui.h("span", "mono", `${planter.key} \xB7 ${t.planterName} \xB7 ${planter.plants}/3 \xB7 ${stateLine}`));
-        if (planter.ripe > 0) {
-          row.append(
-            ctx.ui.button(`${t.floraHarvest} ${planter.ripe}`, { size: "sm", variant: "primary", onClick: () => void floraDo("harvest", [planter.key]) })
-          );
-        }
-        const bag = flora.bags[0];
-        if (bag) {
-          row.append(
-            ctx.ui.button(`${t.floraPlant} ${bag.name}`, { size: "sm", onClick: () => void floraDo("plant", [bag.id, planter.key]) })
-          );
-        }
-        floraSites.append(row);
-      }
-      for (const crop of flora.crops ?? []) {
-        const row = ctx.ui.h("div");
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
-        row.append(
-          ctx.ui.h("span", "mono", `${crop.site} \xB7 ${crop.name} \xB7 ${Math.round(crop.progress * 100)}%${crop.ripe ? " \xB7 \u7ED3\u5B9E" : ""}${crop.dead ? " \xB7 \u67AF\u6B7B" : ""}`)
-        );
-        if (crop.dead) {
-          row.append(
-            ctx.ui.button(t.floraRemove, {
-              size: "sm",
-              onClick: () => void floraDo("remove", [crop.id, crop.site])
-            })
-          );
-        } else {
-          row.append(
-            ctx.ui.button(t.floraInspect, {
-              size: "sm",
-              onClick: () => void inspectCrop(crop.id, crop.site)
-            }),
-            ctx.ui.button(t.floraBreed, {
-              size: "sm",
-              onClick: () => void floraDo("breed", [crop.id, crop.site])
-            }),
-            ctx.ui.button(t.floraTransplant, {
-              size: "sm",
-              onClick: () => void floraDo("transplant", [crop.id, crop.site])
-            })
-          );
-        }
-        floraSites.append(row);
-      }
-      floraInv.replaceChildren();
-      floraInv.textContent = flora.inventory.length === 0 ? `${t.floraInventory}\uFF1A${t.floraEmpty}` : `${t.floraInventory}\uFF1A` + flora.inventory.map((item) => `${item.name} ${item.amount}`).join("\u3001");
-      for (const item of flora.inventory) {
-        const sellButton = ctx.ui.button(`\u5356 1 ${item.name}`, { size: "sm", onClick: () => void floraDo("sell", [item.id, 1]) });
-        floraInv.append(sellButton);
-      }
-      floraTrade.replaceChildren();
-      floraTrade.hidden = !flora.shopOpen;
-      if (flora.shopOpen) {
-        for (const order of state?.orders ?? []) {
-          floraTrade.append(
-            ctx.ui.button(`${t.lifeOrder}\uFF1A${order.species} \xB7 ${order.gene} \u2265 ${order.min} \xB7 ${order.kg}kg \u2192 ${order.reward}`, {
-              size: "sm",
-              onClick: () => void lifeDo("order", [order.id])
-            })
-          );
-        }
-        floraTrade.append(
-          ctx.ui.button(t.lifeCylinder, { size: "sm", onClick: () => void lifeDo("cylinder", [10]) })
-        );
-        floraTrade.append(
-          ctx.ui.button(t.buyChart, { size: "sm", variant: "primary", onClick: () => void lifeDo("chart", []) })
-        );
-      }
-      floraBags.replaceChildren();
-      for (const bag of flora.bags) {
-        const row = ctx.ui.h("div");
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
-        row.append(
-          ctx.ui.h("span", "mono", `${bag.id} \xB7 ${bag.name} \xD7${bag.count}${bag.premium ? " \xB7 \u9AD8\u7EA7" : ""}`),
-          ctx.ui.button(t.floraPlant, { size: "sm", onClick: () => void floraDo("plant", [bag.id]) })
-        );
-        floraBags.append(row);
-      }
-      for (const gh of state?.greenhouses ?? []) {
-        const row = ctx.ui.h("div");
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
-        const label = ctx.ui.h("span", "mono", `\u6E29\u5BA4 ${gh.siteKey}`);
-        const value = ctx.ui.h("span", "mono", gh.targetC === null ? `\u81EA\u52A8\uFF08\u5BA4\u5916 ${gh.ambientC ?? "\u2014"}\u2103\uFF09` : `${gh.targetC}\u2103\uFF08\u6E29\u5DEE ${gh.deltaC}\u2103\uFF0C\u62DF\u771F \xD7${gh.realismCores}\uFF09`);
-        const slider = ctx.ui.h("input");
-        slider.type = "range";
-        slider.min = "-60";
-        slider.max = "80";
-        slider.step = "1";
-        slider.value = String(gh.targetC ?? gh.ambientC ?? 20);
-        slider.style.width = "160px";
-        slider.addEventListener("change", () => {
-          const tempC = Number(slider.value);
-          void lifeDo("install", [{ id: "setpoint", site: gh.siteKey, tempC }]);
-        });
-        const auto = ctx.ui.button("\u81EA\u52A8", {
-          size: "sm",
-          onClick: () => void lifeDo("install", [{ id: "setpoint", site: gh.siteKey }])
-        });
-        const realism = ctx.ui.button("\u62DF\u771F\u6838\u5FC3", {
-          size: "sm",
-          onClick: () => void lifeDo("install", [{ id: "realism", site: gh.siteKey }])
-        });
-        row.append(label, slider, value, auto, realism);
-        floraBags.append(row);
-      }
-    };
-    async function lifeDo(method, args) {
-      if (busy) return;
-      busy = true;
+    const run = async (method, args = [], consumeState = false) => {
       try {
         const result = await ctx.invoke(method, args);
-        if (result?.state) state = result.state;
-        if (result?.text) ctx.ui.toast(result.text, "ok");
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function floraDo(method, args) {
-      if (busy) return;
-      busy = true;
-      try {
-        const result = await ctx.invoke(method, args);
-        if (result && typeof result === "object" && "locked" in result && "power" in result) {
+        if (consumeState && result && typeof result === "object" && "power" in result) {
           state = result;
           render();
-          void ctx.refresh();
-        } else if (result && typeof result === "object" && "text" in result) {
-          floraMsg.hidden = false;
-          floraMsg.textContent = String(result.text);
+          const inner = result.text;
+          if (inner) showMsg(inner);
+          return;
         }
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
+        const payload = result;
+        showMsg(payload?.text ?? String(result));
+      } catch (e) {
+        showMsg(errorText(e), true);
       }
-    }
-    async function inspectCrop(id, site) {
-      if (busy) return;
-      busy = true;
-      try {
-        const result = await ctx.invoke("inspect", [id, site]);
-        floraMsg.hidden = false;
-        floraMsg.textContent = result.text;
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    async function refreshStore() {
-      if (!(state?.locked ?? false)) {
-        storeBox.hidden = true;
+    };
+    const refreshMap = async () => {
+      if (!state || state.locked) {
+        map = null;
         return;
       }
-      storeBox.hidden = false;
       try {
-        const view = await ctx.invoke("store");
-        storeList.textContent = view.list;
-        storeRows.replaceChildren();
-        for (const c of view.containers) {
-          const row = ctx.ui.h("div");
-          row.style.display = "flex";
-          row.style.gap = "6px";
-          row.style.flexWrap = "wrap";
-          row.style.alignItems = "center";
-          const first = c.contents[0]?.resource ?? "biomass";
-          const bufferNote = c.kind === "terminal" ? ctx.ui.h(
-            "span",
-            "muted",
-            `${t.terminalBuffer} ${c.usedKg}/${c.capKg} kg \xB7 ${c.bags ?? 0}/20 ${c.usedKg >= c.capKg ? `\u2014 ${t.terminalFull}` : ""}`
-          ) : null;
-          const depositBtn = ctx.ui.button(`${t.storeDeposit} ${first}`, {
-            size: "sm",
-            onClick: () => void storeDo("deposit", c.id, first, 10)
-          });
-          if (c.kind === "terminal") {
-            depositBtn.disabled = true;
-            depositBtn.title = t.terminalFull;
-          }
-          row.append(
-            ctx.ui.h("span", "mono", `${c.id} \xB7 ${c.where} \xB7 ${c.usedKg}/${c.capKg} kg`),
-            ...bufferNote ? [bufferNote] : [],
-            ...c.routesText ? [ctx.ui.h("span", "muted", c.routesText.split("\n").join(" \xB7 "))] : [],
-            depositBtn,
-            ctx.ui.button(`${t.storeWithdraw} ${first}`, { size: "sm", onClick: () => void storeDo("withdraw", c.id, first, 10) }),
-            ctx.ui.button(t.storeDemolish, { size: "sm", onClick: () => void storeDo("demolish", c.id, "", 0) }),
-            ...c.kind === "terminal" ? [ctx.ui.button(t.terminalTake, { size: "sm", onClick: () => void storeDo("take", c.id, "", 0) })] : []
-          );
-          storeRows.append(row);
-        }
-      } catch (error) {
-        fail(error);
+        map = await ctx.invoke("map", [bodyKey]);
+      } catch (e) {
+        map = null;
+        showMsg(errorText(e), true);
       }
-    }
-    async function storeDo(action, building, resource, kg) {
-      if (busy) return;
-      busy = true;
-      try {
-        const view = await ctx.invoke("storeDo", [action, building, resource, kg]);
-        storeList.textContent = view.list;
-        await refreshStore();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        busy = false;
-      }
-    }
-    const render = () => {
-      const locked = state?.locked ?? false;
-      form.hidden = locked;
-      lockedBox.hidden = !locked;
-      cardPre.textContent = state?.card ?? "";
-      const clock = state?.game ?? null;
-      clockBox.hidden = clock === null;
-      clockBox.textContent = clock ? [
-        `\u6B64\u523B\uFF1A${clock.time}`,
-        clock.where ? `\u4F60\u5728\uFF1A${clock.where}` : "",
-        clock.transit ?? "\u6CA1\u6709\u5728\u79FB\u52A8",
-        clock.calendar
-      ].filter((line) => line !== "").join("\n") : "";
-      if (state && !seeded) {
-        seedInput.value = String(state.defaults.seed);
-        setStarMass(state.defaults.starMass);
-        seeded = true;
-        void refreshPreview();
-      }
-      cooldownMs = state?.power?.generatorCooldownMs ?? 0;
-      renderPower();
-      renderMonitor();
-      renderFlora();
-      renderPlan();
-      paint();
-      storeBox.hidden = !locked;
-      if (locked) void refreshStore();
+      draw();
     };
-    ctx.interval(() => {
-      if (cooldownMs <= 0) return;
-      cooldownMs = Math.max(0, cooldownMs - 200);
-      renderPower();
-    }, 200);
-    const rebuildPicker = () => {
-      const bodies = state?.bodies ?? [];
-      pick.replaceChildren();
-      for (const body of bodies) {
-        const option = document.createElement("option");
-        option.value = body.key;
-        option.textContent = body.label;
-        pick.append(option);
+    const draw = () => {
+      if (!map) {
+        canvas.width = 0;
+        canvas.height = 0;
+        legend.replaceChildren();
+        return;
       }
-      pick.hidden = bodies.length === 0;
-      const charted = bodies.filter((body) => body.charted && body.key !== state?.monitor?.currentKey);
-      chartRow.replaceChildren();
-      chartRow.hidden = charted.length === 0;
-      for (const body of charted) {
-        chartRow.append(
-          ctx.ui.button(`${t.goHere}\uFF1A${body.label}`, {
+      drawMap(canvas, map, state?.territories ?? []);
+      const seen = /* @__PURE__ */ new Set();
+      legend.replaceChildren();
+      for (const row2 of map.biome) {
+        for (const id of row2) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+          const chip = ctx.ui.h("span", "gx-chip");
+          const dot = ctx.ui.h("span", "gx-dot");
+          dot.style.background = mapColor(id);
+          chip.append(dot, ctx.ui.h("span", "gx-faint", String(id)));
+          legend.append(chip);
+        }
+      }
+    };
+    const mapColor = (id) => {
+      const palette = ["#1d4ed8", "#e5edf7", "#c2a35a", "#b7a06a", "#8bbf6b", "#5f9e4f", "#2f7a3f", "#1f6b3a", "#0f5a33", "#345e6e", "#6c7a83", "#9a9aa0", "#9fd0e8", "#5ba6c9", "#4a7fb5", "#7a5fb5", "#c14b6b"];
+      return palette[id] ?? "#555";
+    };
+    const rebuildPicker = () => {
+      picker.replaceChildren();
+      if (!state) return;
+      for (const body of state.bodies) {
+        if (body.kind === "moon") continue;
+        const active = body.key === bodyKey;
+        const chip = ctx.ui.button(`${body.label}`, {
+          size: "sm",
+          variant: active ? "primary" : void 0,
+          onClick: () => {
+            bodyKey = body.key;
+            rebuildPicker();
+            void refreshMap();
+          }
+        });
+        picker.append(chip);
+      }
+    };
+    const render = () => {
+      shell.update(state);
+      if (!state || state.locked) {
+        empty.textContent = emptyText(state);
+        cardMap.hidden = true;
+        cardLook.hidden = true;
+        cardAct.hidden = true;
+        return;
+      }
+      empty.textContent = "";
+      cardMap.hidden = false;
+      cardLook.hidden = false;
+      cardAct.hidden = false;
+      if (!bodyKey || !state.bodies.some((b) => b.key === bodyKey)) bodyKey = state.bodies.find((b) => b.kind !== "moon")?.key ?? "";
+      rebuildPicker();
+    };
+    const latInput = ctx.ui.input({ value: "0" });
+    const lonInput = ctx.ui.input({ value: "0" });
+    const goButton = ctx.ui.button("\u8D70\u8FC7\u53BB", {
+      size: "sm",
+      variant: "primary",
+      onClick: () => {
+        void run("move", [{ latDeg: Number(latInput.value), lonDeg: Number(lonInput.value) }], true);
+      }
+    });
+    const hereButton = ctx.ui.button("\u586B\u811A\u4E0B\u7684\u7ECF\u7EAC", {
+      size: "sm",
+      onClick: () => {
+        if (!state?.location) return;
+        latInput.value = state.location.latDeg.toFixed(1);
+        lonInput.value = state.location.lonDeg.toFixed(1);
+      }
+    });
+    const lookButton = ctx.ui.button(t.lookHere, { size: "sm", onClick: () => void run("look", []) });
+    const waitButton = ctx.ui.button("\u7B49 1 \u65F6", { size: "sm", onClick: () => void run("wait", [{ until: "hours", hours: 1 }], true) });
+    const noonButton = ctx.ui.button("\u7B49\u5230\u4E2D\u5348", { size: "sm", onClick: () => void run("wait", [{ until: "noon" }], true) });
+    const veinsButton = ctx.ui.button("\u63A2\u77FF\u8109", { size: "sm", onClick: () => void run("veins", []) });
+    const surveyButton = ctx.ui.button("\u6D4B\u7ED8\u4E00\u5708", { size: "sm", onClick: () => void run("survey", [], true) });
+    const stargazeButton = ctx.ui.button("\u89C2\u661F", { size: "sm", onClick: () => void run("stargaze", []) });
+    const travel = ctx.ui.h("div", "gx-row");
+    travel.append(ctx.ui.h("span", "gx-k", "\u53BB\u54EA"), latInput, lonInput, goButton, hereButton);
+    const quick = ctx.ui.h("div", "gx-row");
+    quick.append(lookButton, waitButton, noonButton, veinsButton, surveyButton, stargazeButton);
+    cardAct.append(travel, quick);
+    const load = async () => {
+      state = await ctx.invoke("state", []);
+      render();
+      await refreshMap();
+      void run("look", []);
+    };
+    await load();
+  }
+};
+var surface_default = panel2;
+
+// src/webui/panels/farm.ts
+function num3(value, digits = 0) {
+  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+var panel3 = {
+  async mount(ctx) {
+    const t = text(ctx.language);
+    const shell = createShell(ctx, { title: "\u519C\u573A", desc: "\u7AD9\u70B9\u3001\u4F5C\u7269\u3001\u79CD\u5B50\u3001\u6E29\u5BA4\u3002\u5EFA\u7AD9\u5148\u8D70\u5230\u6709\u5730\u7684\u5730\u65B9\u3002" });
+    let state = null;
+    let siteKey = "";
+    const empty = ctx.ui.h("div", "gx-empty");
+    const msg = ctx.ui.h("div", "gx-msg");
+    msg.hidden = true;
+    const sitesCard = ctx.ui.h("div", "gx-card");
+    const cropsCard = ctx.ui.h("div", "gx-card");
+    const seedsCard = ctx.ui.h("div", "gx-card");
+    const houseCard = ctx.ui.h("div", "gx-card");
+    shell.body.append(empty, msg, sitesCard, cropsCard, seedsCard, houseCard);
+    const showMsg = (value, bad = false) => {
+      msg.textContent = value;
+      msg.className = bad ? "gx-msg gx-bad" : "gx-msg gx-ok";
+      msg.hidden = false;
+    };
+    const act = async (method, args = []) => {
+      try {
+        const result = await ctx.invoke(method, args);
+        if (result && typeof result === "object" && "power" in result) {
+          state = result;
+          const inner = result.text;
+          if (inner) showMsg(inner);
+          render();
+          return;
+        }
+        const payload = result;
+        showMsg(payload?.text ?? String(result));
+        state = await ctx.invoke("state", []);
+        render();
+      } catch (e) {
+        showMsg(errorText(e), true);
+      }
+    };
+    const flora = () => state?.flora ?? null;
+    const head = (title, ...extra) => {
+      const bar2 = ctx.ui.h("div", "gx-row");
+      bar2.append(ctx.ui.h("span", "gx-card-head", title), ctx.ui.h("span", "gx-gap"), ...extra);
+      return bar2;
+    };
+    const renderSites = () => {
+      const f = flora();
+      sitesCard.replaceChildren();
+      if (!f) return;
+      const buildSite = ctx.ui.button("\u5728\u8FD9\u513F\u5EFA\u7AD9", { size: "sm", variant: "primary", onClick: () => void act("site", []) });
+      sitesCard.append(head("\u7AD9\u70B9", buildSite));
+      if (f.sites.length === 0) {
+        sitesCard.append(ctx.ui.h("div", "gx-empty", "\u8FD8\u6CA1\u6709\u7AD9\u70B9\uFF1A\u8D70\u5230\u4E00\u5757\u9646\u5730\u4E0A\uFF0C\u70B9\u300C\u5728\u8FD9\u513F\u5EFA\u7AD9\u300D\u3002"));
+        return;
+      }
+      for (const site of f.sites) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        const active = site.key === siteKey;
+        const pick = ctx.ui.button(site.key, {
+          size: "sm",
+          variant: active ? "primary" : void 0,
+          onClick: () => {
+            siteKey = site.key;
+            render();
+          }
+        });
+        const wet = site.wetness === null || site.wetness === void 0 ? "\u2014" : `${Math.round(site.wetness * 100)}%`;
+        const fert = site.fertility === null || site.fertility === void 0 ? "\u2014" : `${Math.round(site.fertility * 100)}%`;
+        rowEl.append(
+          pick,
+          ctx.ui.h("span", "gx-dim", `${site.kind === "water" ? "\u6C34\u8FB9\u6E7F\u5730" : "\u65F1\u5730"} \xB7 \u6E7F ${wet} \xB7 \u80A5 ${fert} \xB7 ${site.plants} \u682A/\u7FA4${site.ripe > 0 ? ` \xB7 ${site.ripe} \u719F` : ""}`)
+        );
+        sitesCard.append(rowEl);
+      }
+    };
+    const renderCrops = () => {
+      const f = flora();
+      cropsCard.replaceChildren();
+      if (!f) return;
+      cropsCard.append(head("\u4F5C\u7269"));
+      const crops = f.crops ?? [];
+      if (crops.length === 0) {
+        cropsCard.append(ctx.ui.h("div", "gx-empty", "\u8FD8\u6CA1\u6709\u4F5C\u7269\uFF1A\u5728\u79CD\u5B50\u533A\u9009\u4E00\u888B\uFF0C\u79CD\u5230\u7AD9\u70B9\u6216\u79CD\u690D\u76C6\u91CC\u3002"));
+        return;
+      }
+      for (const crop of crops.slice(0, 40)) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        const label = `${crop.name} ${crop.id} \xB7 ${crop.site}`;
+        rowEl.append(ctx.ui.h("span", crop.dead ? "gx-bad" : "gx-num", label), ctx.ui.h("span", "gx-dim", `${crop.stage} ${Math.round(crop.progress * 100)}%`));
+        const buttons = [];
+        if (crop.ripe) buttons.push(ctx.ui.button("\u6536", { size: "sm", onClick: () => void act("harvest", [crop.site, crop.id]) }));
+        buttons.push(ctx.ui.button("\u8BE6\u60C5", { size: "sm", onClick: () => void act("inspect", [crop.id, crop.site]) }));
+        if (!crop.dead) {
+          buttons.push(ctx.ui.button("\u7559\u79CD", { size: "sm", onClick: () => void act("breed", [crop.id, crop.site, "self"]) }));
+          buttons.push(ctx.ui.button("\u79FB\u683D", { size: "sm", onClick: () => void act("transplant", [crop.id, crop.site]) }));
+        }
+        if (crop.dead || crop.health < 20) {
+          buttons.push(ctx.ui.button("\u62D4\u6389", { size: "sm", onClick: () => void act("remove", [crop.id, crop.site]) }));
+        }
+        rowEl.append(...buttons);
+        cropsCard.append(rowEl);
+      }
+    };
+    const renderSeeds = () => {
+      const f = flora();
+      seedsCard.replaceChildren();
+      if (!f) return;
+      const planterSelect = ctx.ui.select({
+        options: [
+          { value: "", label: "\u79CD\u5230\uFF1A\u9009\u4E2D\u7684\u7AD9\u70B9" },
+          ...(f.planters ?? []).map((p) => ({ value: p.key, label: `${p.key}\uFF08${p.plants}/3\uFF09` }))
+        ]
+      });
+      seedsCard.append(head("\u79CD\u5B50", planterSelect));
+      if (f.bags.length === 0) {
+        seedsCard.append(ctx.ui.h("div", "gx-empty", "\u6CA1\u6709\u79CD\u5B50\uFF1A\u5546\u5E97\u4E70\u3001\u7559\u79CD\u3001\u6216\u8005\u79FB\u683D\u56DE\u6765\u3002"));
+      }
+      for (const bag of f.bags) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        rowEl.append(ctx.ui.h("span", "gx-num", `${bag.premium ? "\u9AD8\u7EA7" : "\u968F\u673A"} \xB7 ${bag.name} \xD7${bag.count}`));
+        rowEl.append(
+          ctx.ui.button("\u79CD\u4E0B", {
             size: "sm",
-            variant: "primary",
-            onClick: () => void goTo(body.key)
+            onClick: () => {
+              const target = planterSelect.value !== "" ? planterSelect.value : siteKey;
+              if (!target) {
+                showMsg("\u5148\u9009\u4E00\u4E2A\u7AD9\u70B9\uFF08\u6216\u8005\u4E00\u53EA\u79CD\u690D\u76C6\uFF09\u3002", true);
+                return;
+              }
+              void act("plant", [bag.id, target]);
+            }
+          })
+        );
+        seedsCard.append(rowEl);
+      }
+      const inv = (f.inventory ?? []).filter((item) => item.amount > 0);
+      if (inv.length > 0) {
+        seedsCard.append(ctx.ui.h("div", "gx-faint", `\u80CC\u5305\uFF1A${inv.map((item) => `${item.name} ${num3(item.amount, item.amount < 10 ? 1 : 0)}`).join(" \xB7 ")}`));
+      }
+      const fert = (f.inventory ?? []).find((item) => item.id === "fertilizer");
+      if (fert && fert.amount > 0) {
+        seedsCard.append(
+          ctx.ui.button("\u7ED9\u9009\u4E2D\u7AD9\u70B9\u6492 1 kg \u590D\u5408\u80A5", {
+            size: "sm",
+            onClick: () => void act("fertilize", [1, siteKey])
           })
         );
       }
-      canvas.hidden = bodies.length === 0;
-      if (bodies.length === 0) {
-        readout.textContent = t.mapNoBody;
-        oceanLine.textContent = "";
-      }
     };
-    const showMap = (next) => {
-      map = next;
-      paint();
-      if (next.kind === "terrestrial") {
-        oceanLine.textContent = `${t.mapOcean} ${Math.round(next.oceanFraction * 100)}% \xB7 \u6D77\u62D4 ${next.minElevationM} \u2026 ${next.maxElevationM} m`;
-      } else if (next.kind === "isobaric") {
-        oceanLine.textContent = `${t.mapWind} ${next.minWindMps} \u2026 ${next.maxWindMps} m/s \xB7 \u5747\u6E29 ${next.meanTempC} \u2103`;
-      } else {
-        oceanLine.textContent = `${t.mapMoon} \xB7 \u5747\u6E29 ${next.meanTempC} \u2103`;
+    const renderHouse = () => {
+      const f = flora();
+      houseCard.replaceChildren();
+      if (!f) return;
+      houseCard.append(head("\u6E29\u5BA4\u4E0E\u79CD\u690D\u76C6"));
+      const list = ctx.ui.h("div", "gx-list");
+      const greenhouses = state?.greenhouses ?? [];
+      if (greenhouses.length === 0) list.append(ctx.ui.h("div", "gx-empty", "\u8FD8\u6CA1\u6709\u6E29\u5BA4\uFF1A\u6E29\u5BA4\u6309\u7AD9\u70B9\u751F\u6548\uFF0C\u6574\u7AD9\u4F5C\u7269\u90FD\u7B97\u3002"));
+      for (const gh of greenhouses) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        const inside = gh.interiorC === null ? "\u65AD\u7535" : `${gh.interiorC}\u2103`;
+        rowEl.append(ctx.ui.h("span", "gx-num", `${gh.siteKey} \xB7 ${gh.targetC === null ? "\u81EA\u52A8" : `\u8BBE\u5B9A ${gh.targetC}\u2103`} \xB7 \u5BA4\u5185 ${inside}\uFF08\u5BA4\u5916 ${gh.ambientC ?? "\u2014"}\u2103\uFF09`));
+        const slider = ctx.ui.h("input");
+        slider.type = "range";
+        slider.value = gh.targetC === null ? "0" : String(gh.targetC);
+        slider.min = "-60";
+        slider.max = "80";
+        slider.step = "1";
+        slider.onchange = () => {
+          const value = Number(slider.value);
+          void act("install", [{ id: "setpoint", site: gh.siteKey, tempC: value === 0 ? "auto" : value }]);
+        };
+        rowEl.append(slider);
+        list.append(rowEl);
       }
-      readout.textContent = "";
-    };
-    async function loadMap(key) {
-      readout.textContent = t.mapLoading;
-      mapKey = key;
-      try {
-        showMap(await ctx.invoke("map", [key]));
-      } catch (error) {
-        readout.textContent = error instanceof Error ? error.message : String(error);
+      for (const planter of f.planters ?? []) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        rowEl.append(ctx.ui.h("span", "gx-num", `${planter.key} \xB7 ${planter.plants}/3${planter.ripe > 0 ? ` \xB7 ${planter.ripe} \u719F` : ""}`));
+        rowEl.append(ctx.ui.h("span", "gx-dim", planter.powered ? `\u901A\u7535 \xB7 \u5BA4\u5916 ${planter.ambientC ?? "\u2014"}\u2103` : "\u65AD\u7535\uFF08\u8DDF\u5BA4\u5916\uFF09"));
+        list.append(rowEl);
       }
-    }
-    pick.addEventListener("change", () => {
-      if (pick.value) void loadMap(pick.value);
-    });
-    const describeCell = (x, y) => {
-      if (!map) return "";
-      const lat = pxToLatDeg(y, HEIGHT);
-      const lon = pxToLonDeg(x, WIDTH);
-      const { grid } = map;
-      const latIndex = clamp(Math.floor((lat + 90) / (180 / grid.lat)), 0, grid.lat - 1);
-      const lonIndex = clamp(Math.floor((lon + 180) / (360 / grid.lon)), 0, grid.lon - 1);
-      const biome = map.biome[latIndex][lonIndex];
-      const biomeLabel = BIOME_LABELS[biome] ?? String(biome);
-      const base = `\u7EAC\u5EA6 ${lat.toFixed(1)}\xB0 \xB7 \u7ECF\u5EA6 ${lon.toFixed(1)}\xB0 \xB7 ${biomeLabel}`;
-      if (map.kind !== "terrestrial") return base;
-      const elevation = map.elevationM[latIndex][lonIndex];
-      return `${base} \xB7 \u6D77\u62D4 ${elevation} m`;
+      houseCard.append(list);
+      const build = ctx.ui.h("div", "gx-row");
+      for (const [kind, label] of [
+        ["greenhouse", "\u5EFA\u6E29\u5BA4\u6838\u5FC3"],
+        ["planter", "\u5EFA\u79CD\u690D\u76C6"],
+        ["fence", "\u5EFA\u56F4\u680F"],
+        ["scarecrow", "\u5EFA\u7A3B\u8349\u4EBA"],
+        ["feed_trough", "\u5EFA\u5582\u98DF\u69FD"]
+      ]) {
+        build.append(ctx.ui.button(label, { size: "sm", onClick: () => void act("install", [{ id: kind, site: siteKey }]) }));
+      }
+      houseCard.append(build);
     };
-    canvas.addEventListener("mousemove", (event) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width * WIDTH;
-      const y = (event.clientY - rect.top) / rect.height * HEIGHT;
-      readout.textContent = describeCell(x, y);
-    });
-    canvas.addEventListener("click", (event) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width * WIDTH;
-      const y = (event.clientY - rect.top) / rect.height * HEIGHT;
-      const hit = (state?.structures ?? []).find((s) => {
-        const px = xPx(s.lonDeg, WIDTH);
-        const py = yPx(s.latDeg, HEIGHT);
-        return Math.hypot(px - x, py - y) <= 11;
-      });
-      if (hit) {
-        selectedId = hit.id;
-        paint();
-        renderPlan();
+    const render = () => {
+      shell.update(state);
+      if (!state || state.locked) {
+        empty.textContent = emptyText(state);
+        for (const card2 of [sitesCard, cropsCard, seedsCard, houseCard]) card2.hidden = true;
         return;
       }
-      readout.textContent = describeCell(x, y);
-    });
-    canvas.addEventListener("mouseleave", () => {
-      if (map) readout.textContent = "";
-    });
-    const fail = (error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      status.textContent = message;
-      status.classList.add("bad");
-      ctx.ui.toast(message, "bad");
+      empty.textContent = "";
+      for (const card2 of [sitesCard, cropsCard, seedsCard, houseCard]) card2.hidden = false;
+      if (!siteKey || !(state.flora?.sites ?? []).some((site) => site.key === siteKey)) {
+        siteKey = state.flora?.sites[0]?.key ?? "";
+      }
+      renderSites();
+      renderCrops();
+      renderSeeds();
+      renderHouse();
     };
-    async function create() {
-      if (busy) return;
-      busy = true;
-      const stop = ctx.ui.disable(createButton);
-      try {
-        state = await ctx.invoke("create", [
-          {
-            seed: normalizeSeedInput(seedInput.value),
-            starMass: Number(starInput.value),
-            starName: starNameInput.value,
-            homeName: homeNameInput.value
-          }
-        ]);
-        status.textContent = "";
-        status.classList.remove("bad");
-        ctx.ui.toast(t.created, "ok");
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        stop.dispose();
-        busy = false;
-        render();
-      }
-    }
-    async function reset() {
-      if (busy) return;
-      if (!await ctx.ui.confirm({ title: t.resetTitle, body: t.resetBody, danger: true })) return;
-      busy = true;
-      const stop = ctx.ui.disable(resetButton);
-      try {
-        state = await ctx.invoke("reset", ["DELETE"]);
-        map = null;
-        status.textContent = "";
-        status.classList.remove("bad");
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        stop.dispose();
-        busy = false;
-        render();
-      }
-    }
-    async function press() {
-      if (busy) return;
-      busy = true;
-      const stop = ctx.ui.disable(genButton);
-      try {
-        state = await ctx.invoke("press");
-        cooldownMs = state.power?.generatorCooldownMs ?? 0;
-        render();
-      } catch (error) {
-        fail(error);
-      } finally {
-        stop.dispose();
-        busy = false;
-      }
-    }
-    async function gridMove(direction) {
-      if (busy) return;
-      busy = true;
-      const stop = ctx.ui.disable(gridInButton, gridOutButton);
-      try {
-        await ctx.invoke("storeDo", [direction]);
-        state = await ctx.invoke("state");
-        render();
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        stop.dispose();
-        busy = false;
-      }
-    }
-    async function installMonitor() {
-      const key = state?.monitor?.currentKey;
-      if (!key || busy) return;
-      busy = true;
-      const stop = ctx.ui.disable(monitorButton);
-      try {
-        state = await ctx.invoke("monitor", [key]);
-        render();
-        rebuildPicker();
-        if (pick.value) void loadMap(pick.value);
-        void ctx.refresh();
-      } catch (error) {
-        fail(error);
-      } finally {
-        stop.dispose();
-        busy = false;
-      }
-    }
-    try {
-      state = await ctx.invoke("state");
-      status.textContent = "";
-      render();
-      rebuildPicker();
-      if (pick.value) void loadMap(pick.value);
-    } catch (error) {
-      fail(error);
-    }
+    state = await ctx.invoke("state", []);
+    render();
   }
 };
+var farm_default = panel3;
+
+// src/webui/panels/industry.ts
+function num4(value, digits = 0) {
+  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+var KINDS = [
+  ["", "\u519C\u4E1A\u4E0E\u98DF\u7269"],
+  ["greenhouse", "\u6E29\u5BA4\u6838\u5FC3"],
+  ["planter", "\u79CD\u690D\u76C6"],
+  ["pump", "\u62BD\u6C34\u673A"],
+  ["purifier", "\u51C0\u6C34\u5668"],
+  ["kiln", "\u70AD\u7A91"],
+  ["sealer", "\u5C01\u88C5\u5668"],
+  ["mutation_room", "\u8BF1\u53D8\u5BA4"],
+  ["feed_trough", "\u5582\u98DF\u69FD"],
+  ["fence", "\u56F4\u680F"],
+  ["scarecrow", "\u7A3B\u8349\u4EBA"],
+  ["biome_changer", "\u7FA4\u7CFB\u6539\u53D8\u5668"],
+  ["", "\u4ED3\u50A8\u4E0E\u7269\u6D41"],
+  ["warehouse", "\u4ED3\u5E93"],
+  ["cold_store", "\u51B7\u5E93"],
+  ["inert_room", "\u60F0\u6027\u6C14\u4F53\u5BA4"],
+  ["terminal", "\u4EA4\u6613\u7EC8\u7AEF"],
+  ["storage_terminal", "\u4ED3\u50A8\u7EC8\u7AEF"],
+  ["arm", "\u673A\u68B0\u81C2"],
+  ["drone_cluster", "\u65E0\u4EBA\u673A\u96C6\u7FA4"],
+  ["rocket", "\u706B\u7BAD"],
+  ["", "\u7535\u529B\u4E0E\u5DE5\u4E1A"],
+  ["rectifier", "\u6574\u6D41\u7535\u5854"],
+  ["wind", "\u98CE\u529B\u53D1\u7535\u7AD9"],
+  ["fire", "\u706B\u529B\u53D1\u7535\u7AD9"],
+  ["converter", "\u6C14\u6DB2\u8F6C\u6362\u673A"],
+  ["atmo_extractor", "\u5927\u6C14\u63D0\u53D6\u673A"],
+  ["miner", "\u91C7\u77FF\u673A"],
+  ["", "\u751F\u547D\u4E0E\u4EBA\u4E8B"],
+  ["habitat", "\u5C45\u6240"],
+  ["duty", "\u503C\u73ED\u7EC8\u7AEF"],
+  ["carrier", "\u7A7A\u5929\u6BCD\u8230"],
+  ["", "\u65C5\u6E38\u7EBF"],
+  ["tourism_dock", "\u89C2\u5149\u5854\u53F0\uFF08\u65C5\u6E38\uFF09"],
+  ["visitor_lodge", "\u8BBF\u5BA2\u9A7F\u7AD9\uFF08\u65C5\u6E38\uFF09"],
+  ["tour_line", "\u89C2\u5149\u7EBF\u8DEF\u7AD9\uFF08\u65C5\u6E38\uFF09"],
+  ["souvenir", "\u7EAA\u5FF5\u54C1\u5E97\uFF08\u65C5\u6E38\uFF09"],
+  ["", "\u79D1\u6280\u7EBF"],
+  ["recruit_office", "\u62DB\u52DF\u7AD9\uFF08\u79D1\u6280\uFF09"],
+  ["staff_housing", "\u5458\u5DE5\u516C\u5BD3\uFF08\u79D1\u6280\uFF09"],
+  ["fab", "\u6676\u5706\u5382\uFF08\u79D1\u6280\uFF09"],
+  ["compute_array", "\u8BA1\u7B97\u9635\u5217\uFF08\u79D1\u6280\uFF09"],
+  ["heavy_water", "\u91CD\u6C34\u63D0\u53D6\u5668\uFF08\u79D1\u6280\uFF09"],
+  ["enrichment", "\u5BCC\u96C6\u5854\uFF08\u79D1\u6280\uFF09"],
+  ["", "\u5B89\u88C5\u4EF6\uFF08\u4E0D\u8FDB\u65BD\u5DE5\u961F\u5217\uFF0C\u88C5\u5B8C\u7ACB\u5373\u53EF\u7528\uFF09"],
+  ["sail", "\u592A\u9633\u80FD\u5E06"],
+  ["monitor", "\u73AF\u5883\u76D1\u6D4B\u5668"],
+  ["counter", "\u51CC\u65E5\u8BA1\u6570\u5668"],
+  ["cooler", "\u5236\u51B7\u6838\u5FC3\uFF08\u88C5\u5728\u6E29\u5BA4\u4E0A\uFF09"],
+  ["heater", "\u5236\u70ED\u6838\u5FC3\uFF08\u88C5\u5728\u6E29\u5BA4\u4E0A\uFF09"],
+  ["realism", "\u62DF\u771F\u6838\u5FC3\uFF08\u88C5\u5728\u6E29\u5BA4\u4E0A\uFF09"]
+];
+var WONDERS = [
+  ["sky_ring", "\u5929\u7A79\u73AF"],
+  ["under_ice_eye", "\u51B0\u4E0B\u4E4B\u773C"],
+  ["silicon_valley", "\u7845\u8C37"],
+  ["orbital_mirror", "\u8F68\u9053\u955C\u9635"],
+  ["s2_engine", "\u62DF\u9020S2\u673A\u5173"]
+];
+var panel4 = {
+  async mount(ctx) {
+    const t = text(ctx.language);
+    const shell = createShell(ctx, { title: "\u5DE5\u4E1A", desc: "\u7535\u3001\u5EFA\u7B51\u3001\u5EFA\u9020\u3001\u822A\u884C\u3002\u624B\u6447\u51FA\u6765\u7684\u7535\u5148\u5B58\u8FDB\u7535\u6C60\u3002" });
+    let state = null;
+    const empty = ctx.ui.h("div", "gx-empty");
+    const msg = ctx.ui.h("div", "gx-msg");
+    msg.hidden = true;
+    const powerCard = ctx.ui.h("div", "gx-card");
+    const buildCard = ctx.ui.h("div", "gx-card");
+    const listCard = ctx.ui.h("div", "gx-card");
+    const travelCard = ctx.ui.h("div", "gx-card");
+    const wonderCard = ctx.ui.h("div", "gx-card");
+    shell.body.append(empty, msg, powerCard, buildCard, listCard, travelCard, wonderCard);
+    const showMsg = (value, bad = false) => {
+      msg.textContent = value;
+      msg.className = bad ? "gx-msg gx-bad" : "gx-msg gx-ok";
+      msg.hidden = false;
+    };
+    const act = async (method, args = []) => {
+      try {
+        const result = await ctx.invoke(method, args);
+        if (result && typeof result === "object" && "power" in result) {
+          state = result;
+          const inner = result.text;
+          if (inner) showMsg(inner);
+        } else {
+          const payload = result;
+          showMsg(payload?.text ?? String(result));
+          state = await ctx.invoke("state", []);
+        }
+      } catch (e) {
+        showMsg(errorText(e), true);
+      }
+      render();
+    };
+    const head = (title, ...extra) => {
+      const bar2 = ctx.ui.h("div", "gx-row");
+      bar2.append(ctx.ui.h("span", "gx-card-head", title), ctx.ui.h("span", "gx-gap"), ...extra);
+      return bar2;
+    };
+    const renderPower = () => {
+      powerCard.replaceChildren();
+      const power = state?.power;
+      if (!power) return;
+      const ratio = power.capacityKj > 0 ? power.energyKj / power.capacityKj : 0;
+      const press = ctx.ui.button("\u624B\u6447\u4E00\u6B21", { size: "sm", variant: "primary", onClick: () => void act("press", []) });
+      const sail = ctx.ui.button("\u5EFA\u592A\u9633\u80FD\u5E06", { size: "sm", onClick: () => void act("install", [{ id: "sail" }]) });
+      const monitor = ctx.ui.button("\u88C5\u73AF\u5883\u76D1\u6D4B\u5668", { size: "sm", onClick: () => void act("monitor", []) });
+      powerCard.append(head("\u80FD\u91CF\u4E0E\u8BBE\u5907", press, sail, monitor));
+      powerCard.append(
+        ctx.ui.h("div", "gx-row", `\u26A1 ${num4(power.energyKj)} / ${num4(power.capacityKj)} kJ\uFF08${Math.round(ratio * 100)}%\uFF09`),
+        ctx.ui.h("div", "gx-row", `\u94A8 ${num4(power.tungsten)} kg \xB7 \u592A\u9633\u80FD\u5E06 ${power.sails} \u53F0`)
+      );
+      if (power.grid) {
+        powerCard.append(
+          ctx.ui.h("div", "gx-row", `\u7535\u7F51 ${num4(power.grid.storedKj)} / ${num4(power.grid.capacityKj)} kJ \xB7 ${power.grid.hasTower ? power.grid.reachable ? "\u5728\u7535\u5854\u65C1\uFF08\u53EF\u642C\u7535\uFF09" : "\u7535\u5854\u5728\u522B\u5904" : "\u6CA1\u6709\u7535\u5854"}`)
+        );
+        const kjInput = ctx.ui.input({ type: "number", value: "10000" });
+        kjInput.min = "100";
+        kjInput.style.width = "90px";
+        const gridIn = ctx.ui.button("\u5B58\u8FDB\u7535\u7F51", {
+          size: "sm",
+          onClick: () => void act("storeDo", [{ action: "grid_in", kj: Number(kjInput.value) || 1e4 }])
+        });
+        const gridOut = ctx.ui.button("\u4ECE\u7535\u7F51\u53D6", {
+          size: "sm",
+          onClick: () => void act("storeDo", [{ action: "grid_out", kj: Number(kjInput.value) || 1e4 }])
+        });
+        gridIn.disabled = !power.grid.hasTower || !power.grid.reachable;
+        gridOut.disabled = gridIn.disabled;
+        const gridRow = ctx.ui.h("div", "gx-row");
+        gridRow.append(kjInput, gridIn, gridOut);
+        powerCard.append(ctx.ui.h("div", "gx-row", "\u7535\u7F51\u642C\u7535\uFF08\u4E00\u6B21\u6700\u591A 10,000 kJ\uFF09"), gridRow);
+      }
+    };
+    const renderBuild = () => {
+      const select = ctx.ui.select({ options: KINDS.map(([value, label]) => ({ value, label })) });
+      const button = ctx.ui.button("\u5EFA\u5728\u811A\u4E0B", {
+        size: "sm",
+        variant: "primary",
+        onClick: () => void act("install", [{ id: select.value }])
+      });
+      buildCard.replaceChildren(head("\u5EFA\u9020", select, button));
+      if (state?.builds.length) {
+        buildCard.append(
+          ctx.ui.h("div", "gx-faint", `\u65BD\u5DE5\u4E2D\uFF1A${state.builds.map((b) => `${b.label}\uFF08\u8FD8\u5269 ${num4(b.leftHomeHours, 1)} \u65F6\uFF09`).join(" \xB7 ")}`)
+        );
+      } else {
+        buildCard.append(ctx.ui.h("div", "gx-faint", `\u65BD\u5DE5\u961F\u5217 ${state?.builds.length ?? 0} / ${state?.buildSlots ?? 1}`));
+      }
+    };
+    const renderList = () => {
+      listCard.replaceChildren(head("\u5DF2\u5EFA\u5EFA\u7B51"));
+      const list = ctx.ui.h("div", "gx-list");
+      for (const item of state?.structures ?? []) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        rowEl.append(ctx.ui.h("span", "gx-num", `${item.label} \xB7 ${item.siteKey}`));
+        if (item.capKg > 0) rowEl.append(ctx.ui.h("span", "gx-dim", `${num4(item.usedKg, 1)} / ${num4(item.capKg)} kg`));
+        if (item.interiorC !== void 0) rowEl.append(ctx.ui.h("span", "gx-dim", `\u5BA4\u5185 ${item.interiorC}\u2103`));
+        if (item.armText) rowEl.append(ctx.ui.h("span", "gx-dim", item.armText));
+        if (item.dutyText) rowEl.append(ctx.ui.h("span", "gx-dim", item.dutyText));
+        rowEl.append(
+          ctx.ui.button("\u8D70\u8FC7\u53BB", { size: "sm", onClick: () => void act("move", [{ latDeg: item.latDeg, lonDeg: item.lonDeg }]) })
+        );
+        list.append(rowEl);
+      }
+      if ((state?.structures ?? []).length === 0) list.append(ctx.ui.h("div", "gx-empty", "\u8FD8\u6CA1\u6709\u5EFA\u7B51\u3002"));
+      listCard.append(list);
+    };
+    const renderTravel = () => {
+      travelCard.replaceChildren(head("\u8DE8\u661F\u822A\u884C"));
+      const list = ctx.ui.h("div", "gx-chips");
+      for (const body of state?.bodies ?? []) {
+        if (body.kind === "moon") continue;
+        list.append(
+          ctx.ui.button(body.label, {
+            size: "sm",
+            onClick: () => void act("move", [{ kind: "interstellar", target: body.key }])
+          })
+        );
+      }
+      travelCard.append(list, ctx.ui.h("div", "gx-faint", "\u8981\u5148\u628A\u3010\u673A\u52A8\u6838\u5FC3\u3011\u4FEE\u597D\u3001\u5E76\u4E14\u770B\u5F97\u89C1\uFF08\u89C2\u661F\uFF09\u6216\u8005\u624B\u91CC\u6709\u661F\u56FE\u3002"));
+    };
+    const renderWonders = () => {
+      wonderCard.replaceChildren(head("\u5947\u89C2"));
+      const charter = state?.power?.charter;
+      if (!charter || charter.charter === null) {
+        wonderCard.append(ctx.ui.h("div", "gx-faint", "\u8FD8\u6CA1\u4E70\u6267\u7167\uFF1A\u53BB\u300C\u5546\u5E97\u300D\u4E70\u4E00\u5F20\u661F\u9645\u5E7F\u64AD\u3002"));
+        return;
+      }
+      if (charter.wonder) {
+        wonderCard.append(ctx.ui.h("div", "gx-row", `${charter.wonder.label} \xB7 ${Math.round(charter.wonder.progress * 100)}%\uFF08\u65AD\u7535\u4F1A\u70C2\u5C3E\uFF09`));
+      } else {
+        const chips = ctx.ui.h("div", "gx-chips");
+        for (const [id, label] of WONDERS) {
+          chips.append(ctx.ui.button(`\u9020${label}`, { size: "sm", onClick: () => void act("wonder", [{ id }]) }));
+        }
+        wonderCard.append(chips);
+      }
+      if (charter.wonders.length > 0) wonderCard.append(ctx.ui.h("div", "gx-faint", `\u5DF2\u843D\u6210\uFF1A${charter.wonders.join(" \xB7 ")}`));
+    };
+    const render = () => {
+      shell.update(state);
+      if (!state || state.locked) {
+        empty.textContent = emptyText(state);
+        for (const card2 of [powerCard, buildCard, listCard, travelCard, wonderCard]) card2.hidden = true;
+        return;
+      }
+      empty.textContent = "";
+      for (const card2 of [powerCard, buildCard, listCard, travelCard, wonderCard]) card2.hidden = false;
+      renderPower();
+      renderBuild();
+      renderList();
+      renderTravel();
+      renderWonders();
+    };
+    state = await ctx.invoke("state", []);
+    render();
+  }
+};
+var industry_default = panel4;
+
+// src/webui/panels/life.ts
+function num5(value, digits = 0) {
+  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+var panel5 = {
+  async mount(ctx) {
+    const t = text(ctx.language);
+    const shell = createShell(ctx, { title: "\u751F\u547D\u4E0E\u4EBA\u4E8B", desc: "\u4EBA\u53E3\u3001\u5C45\u6240\u3001\u4EBA\u624B\u91CC\u5728\u5E72\u4EC0\u4E48\u3002\u53EB\u9192\u4E4B\u540E\u4ED6\u4EEC\u8981\u5403\u8981\u559D\u3002" });
+    let state = null;
+    const empty = ctx.ui.h("div", "gx-empty");
+    const msg = ctx.ui.h("div", "gx-msg");
+    msg.hidden = true;
+    const peopleCard = ctx.ui.h("div", "gx-card");
+    const houseCard = ctx.ui.h("div", "gx-card");
+    const protocolCard = ctx.ui.h("div", "gx-card");
+    shell.body.append(empty, msg, peopleCard, houseCard, protocolCard);
+    const showMsg = (value, bad = false) => {
+      msg.textContent = value;
+      msg.className = bad ? "gx-msg gx-bad" : "gx-msg gx-ok";
+      msg.hidden = false;
+    };
+    const act = async (method, args = []) => {
+      try {
+        const result = await ctx.invoke(method, args);
+        if (result && typeof result === "object" && "power" in result) {
+          state = result;
+          const inner = result.text;
+          if (inner) showMsg(inner);
+        } else {
+          const payload = result;
+          showMsg(payload?.text ?? String(result));
+          state = await ctx.invoke("state", []);
+        }
+      } catch (e) {
+        showMsg(errorText(e), true);
+      }
+      render();
+    };
+    const head = (title, ...extra) => {
+      const bar2 = ctx.ui.h("div", "gx-row");
+      bar2.append(ctx.ui.h("span", "gx-card-head", title), ctx.ui.h("span", "gx-gap"), ...extra);
+      return bar2;
+    };
+    const renderPeople = () => {
+      peopleCard.replaceChildren();
+      if (!state) return;
+      const awake = state.habitats.reduce((sum, h) => sum + h.awake, 0);
+      const capacity = state.habitats.length * 20;
+      const sleepers = state.power?.ship?.sleepers ?? 0;
+      const labor = Math.floor(awake / 5);
+      const wake = ctx.ui.button("\u53EB\u9192\u4E00\u6279", {
+        size: "sm",
+        variant: "primary",
+        onClick: () => void act("wake", [])
+      });
+      peopleCard.append(head("\u4EBA\u53E3", wake));
+      peopleCard.append(
+        ctx.ui.h("div", "gx-row", `\u5E38\u4F4F ${num5(awake)} / ${num5(capacity)} \xB7 \u4F11\u7720\u8231 ${num5(sleepers)} \u4EBA \xB7 \u4EBA\u624B ${num5(labor)} \u4EFD\uFF08\u6BCF 5 \u4EBA\u4E00\u4EFD\uFF09`)
+      );
+      const ship = state.power?.ship;
+      if (ship && ship.sleepers > 0) {
+        const hours = ship.hoursLeft === null ? "\u2014" : `${num5(ship.hoursLeft)} \u6BCD\u661F\u65F6`;
+        peopleCard.append(ctx.ui.h("div", "gx-faint", `\u8231\u91CC\uFF1A\u7CAE ${num5(ship.food, 1)} kg \xB7 \u6C34 ${num5(ship.water)} L \xB7 \u6C27 ${num5(ship.oxygen, 1)} kg \xB7 \u8FD8\u80FD\u6491 ${hours}`));
+        peopleCard.append(ctx.ui.h("div", "gx-faint", "\u8231\u7A7A\u4E86\u4E0D\u4F1A\u81EA\u52A8\u53BB\u4ED3\u5E93\u62FF\u8D27\uFF1A\u8865\u8231\u7528\u4ED3\u5E93\u7684 deposit\uFF0Cbuilding \u586B\u300Cpod\u300D\u3002"));
+      }
+      if (awake > 0) {
+        peopleCard.append(ctx.ui.h("div", "gx-faint", "\u4EBA\u624B\u8981\u300C\u503C\u73ED\u7EC8\u7AEF\u300D\u624D\u4F1A\u5E72\u6D3B\uFF1A\u5EFA\u7EC8\u7AEF\u3001\u7ED1\u5C45\u6240\u4E0E\u4ED3\u5E93\uFF0C\u7136\u540E\u6BCF\u5929\u81EA\u52A8\u6536\u79CD\u65BD\u80A5\u3002"));
+      }
+    };
+    const renderHouses = () => {
+      houseCard.replaceChildren(head("\u5C45\u6240"));
+      const list = ctx.ui.h("div", "gx-list");
+      if ((state?.habitats ?? []).length === 0) list.append(ctx.ui.h("div", "gx-empty", "\u8FD8\u6CA1\u6709\u5C45\u6240\uFF1A\u5148\u5EFA\u4E00\u5EA7\uFF08\u4EBA\u53EA\u63A5\u53D7 5\u201332\u2103 \u7684\u5BA4\u5185\uFF09\u3002"));
+      for (const habitat of state?.habitats ?? []) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        rowEl.append(ctx.ui.h("span", "gx-num", `${habitat.nickname} \xB7 ${habitat.awake}/${habitat.awake + habitat.dormant} \u4EBA`));
+        rowEl.append(
+          ctx.ui.h("span", "gx-dim", `\u7CAE ${num5(habitat.food, 1)} \xB7 \u6C34 ${num5(habitat.water)} \xB7 \u6C27 ${num5(habitat.oxygen, 1)} \xB7 \u8FD8\u80FD\u6491 ${num5(habitat.hoursLeft)} \u65F6`)
+        );
+        const structure = (state?.structures ?? []).find((item) => item.siteKey && item.kind === "habitat" && item.interiorC !== void 0);
+        if (structure?.interiorC !== void 0) {
+          const tone = structure.comfort === "ok" ? "gx-ok" : "gx-warn";
+          rowEl.append(ctx.ui.h("span", tone, `\u5BA4\u5185 ${structure.interiorC}\u2103`));
+        }
+        list.append(rowEl);
+      }
+      houseCard.append(list);
+    };
+    const renderProtocol = () => {
+      protocolCard.replaceChildren(head("\u534F\u8BAE\u8FDB\u5EA6"));
+      const protocol = state?.protocol;
+      if (!protocol) {
+        protocolCard.append(ctx.ui.h("div", "gx-faint", "\u534F\u8BAE\u6E05\u5355\u5728\u300C\u534F\u8BAE\u300D\u9875\u7B7E\u3002"));
+        return;
+      }
+      protocolCard.append(ctx.ui.h("div", "gx-row", `${protocol.done} / ${protocol.total} \u6761 \xB7 ${protocol.awakened ? "\u5DF2\u7ECF\u53EB\u9192" : protocol.complete ? "\u53EF\u4EE5\u53EB\u9192\u4E86" : "\u8FD8\u5DEE\u51E0\u6761"}`));
+      const undone = protocol.tasks.filter((task) => !task.done).slice(0, 4);
+      const list = ctx.ui.h("div", "gx-list");
+      for (const task of undone) {
+        const rowEl = ctx.ui.h("div", "gx-item");
+        rowEl.append(ctx.ui.h("span", "gx-warn", "\u25CF"), ctx.ui.h("span", "gx-num", task.title), ctx.ui.h("span", "gx-faint", task.progress));
+        list.append(rowEl);
+      }
+      if (undone.length === 0) list.append(ctx.ui.h("div", "gx-ok", "\u6E05\u5355\u5DF2\u7ECF\u5168\u7EFF\u3002"));
+      protocolCard.append(list);
+    };
+    const render = () => {
+      shell.update(state);
+      if (!state || state.locked) {
+        empty.textContent = emptyText(state);
+        for (const card2 of [peopleCard, houseCard, protocolCard]) card2.hidden = true;
+        return;
+      }
+      empty.textContent = "";
+      for (const card2 of [peopleCard, houseCard, protocolCard]) card2.hidden = false;
+      renderPeople();
+      renderHouses();
+      renderProtocol();
+    };
+    state = await ctx.invoke("state", []);
+    render();
+  }
+};
+var life_default = panel5;
+
+// src/webui/panels/save.ts
+function normalizeSeed(raw) {
+  const text2 = raw.trim();
+  if (text2 === "") return 20261111;
+  return /^\d{1,15}$/.test(text2) ? Number(text2) : text2;
+}
+var panel6 = {
+  async mount(ctx) {
+    const shell = createShell(ctx, {
+      title: "\u5B58\u6863",
+      desc: "\u65B0\u5EFA\u4E00\u5C40\u3001\u5BFC\u5165\u522B\u4EBA\u7684\u5B58\u6863\u3001\u5BFC\u51FA\u8FD9\u4E00\u5C40\u3001\u6216\u8005\u5220\u6389\u91CD\u6765\u3002"
+    });
+    let state = null;
+    const nowCard = ctx.ui.h("div", "gx-card");
+    const nowLine = ctx.ui.h("p", "gx-dim");
+    nowCard.append(ctx.ui.h("h3", void 0, "\u5F53\u524D\u5B58\u6863"), nowLine);
+    const newCard = ctx.ui.h("div", "gx-card");
+    const seedInput = ctx.ui.input({ type: "text", value: "20261111", placeholder: "\u6570\u5B57\uFF0C\u6216\u4EFB\u610F\u4E00\u53E5\u8BDD" });
+    const starNameInput = ctx.ui.input({ type: "text", value: "\u957F\u5E9A", placeholder: "\u6052\u661F\u540D" });
+    const homeNameInput = ctx.ui.input({ type: "text", value: "\u6816\u539F", placeholder: "\u6BCD\u661F\u540D" });
+    const starMassLabel = ctx.ui.h("span", "gx-num", "1.00 M\u2609");
+    const starMassInput = ctx.ui.h("input");
+    starMassInput.type = "range";
+    starMassInput.min = "0.15";
+    starMassInput.max = "2";
+    starMassInput.step = "0.05";
+    starMassInput.value = "1";
+    starMassInput.oninput = () => {
+      starMassLabel.textContent = `${Number(starMassInput.value).toFixed(2)} M\u2609`;
+    };
+    const shapeLine = ctx.ui.h("p", "gx-dim", "");
+    const createButton = ctx.ui.button("\u521B\u4E16", { variant: "primary" });
+    let previewTimer;
+    const refreshShape = async () => {
+      try {
+        const shape = await ctx.invoke(
+          "preview",
+          [normalizeSeed(seedInput.value)]
+        );
+        shapeLine.textContent = `\u8FD9\u9897\u79CD\u5B50\u4F1A\u957F\u51FA ${shape.planetCount} \u9897\u884C\u661F\uFF08${shape.minPlanets}\u2013${shape.maxPlanets}\uFF09\uFF0C\u6BCF\u9897\u6700\u591A ${shape.maxMoons} \u9897\u536B\u661F\u3002`;
+      } catch {
+        shapeLine.textContent = "";
+      }
+    };
+    seedInput.oninput = () => {
+      if (previewTimer !== void 0) window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(() => void refreshShape(), 180);
+    };
+    createButton.onclick = async () => {
+      createButton.disabled = true;
+      try {
+        const next = await ctx.invoke("create", [
+          {
+            seed: normalizeSeed(seedInput.value),
+            starMass: Number(starMassInput.value),
+            starName: starNameInput.value.trim() || "\u6052\u661F",
+            homeName: homeNameInput.value.trim() || "\u6BCD\u661F"
+          }
+        ]);
+        state = next;
+        render();
+        void ctx.refresh();
+      } catch (error) {
+        msg(errorText(error), "bad");
+      } finally {
+        createButton.disabled = false;
+      }
+    };
+    const formRows = ctx.ui.h("div", "gx-rows");
+    formRows.append(
+      row2(ctx, "\u79CD\u5B50", seedInput),
+      row2(ctx, "\u6052\u661F\u8D28\u91CF", (() => {
+        const wrap = ctx.ui.h("div", "gx-row");
+        wrap.append(starMassInput, starMassLabel);
+        return wrap;
+      })()),
+      row2(ctx, "\u6052\u661F\u540D", starNameInput),
+      row2(ctx, "\u6BCD\u661F\u540D", homeNameInput)
+    );
+    newCard.append(ctx.ui.h("h3", void 0, "\u65B0\u5EFA\u5B58\u6863\uFF08\u521B\u4E16\uFF09"), formRows, shapeLine, createButton);
+    const importCard = ctx.ui.h("div", "gx-card");
+    const importInput = ctx.ui.h("input");
+    importInput.type = "file";
+    importInput.accept = "application/json";
+    const importButton = ctx.ui.button("\u5BFC\u5165\u8FD9\u4EFD\u5B58\u6863", { size: "sm" });
+    importButton.onclick = async () => {
+      const file = importInput.files?.[0];
+      if (!file) {
+        msg("\u5148\u9009\u4E00\u4E2A .json \u6587\u4EF6\u3002", "bad");
+        return;
+      }
+      importButton.disabled = true;
+      try {
+        const text2 = await file.text();
+        const result = await ctx.invoke("import", [text2]);
+        msg(result.text, "ok");
+        state = await ctx.invoke("state", []);
+        render();
+        void ctx.refresh();
+      } catch (error) {
+        msg(errorText(error), "bad");
+      } finally {
+        importButton.disabled = false;
+      }
+    };
+    importCard.append(ctx.ui.h("h3", void 0, "\u5BFC\u5165"), importInput, importButton);
+    const exportCard = ctx.ui.h("div", "gx-card");
+    const exportButton = ctx.ui.button("\u5BFC\u51FA\u8FD9\u4E00\u5C40", { size: "sm" });
+    exportButton.onclick = async () => {
+      exportButton.disabled = true;
+      try {
+        const result = await ctx.invoke("export", []);
+        const blob = new Blob([result.text], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = result.filename;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 5e3);
+        msg(`\u5DF2\u5BFC\u51FA\uFF1A${result.filename}`, "ok");
+      } catch (error) {
+        msg(errorText(error), "bad");
+      } finally {
+        exportButton.disabled = false;
+      }
+    };
+    exportCard.append(ctx.ui.h("h3", void 0, "\u5BFC\u51FA"), ctx.ui.h("p", "gx-dim", "\u4E00\u4EFD JSON \u5C31\u662F\u6574\u5C40\uFF1A\u661F\u7CFB\u3001\u5B58\u6863\u3001\u79CD\u5B50\u90FD\u5728\u91CC\u9762\u3002"), exportButton);
+    const deleteCard = ctx.ui.h("div", "gx-card");
+    const deleteInput = ctx.ui.input({ type: "text", placeholder: "\u8F93\u5165 DELETE \u786E\u8BA4" });
+    const deleteButton = ctx.ui.button("\u5220\u6389\u8FD9\u4E00\u5C40", { size: "sm", variant: "primary" });
+    deleteButton.onclick = async () => {
+      if (deleteInput.value.trim() !== "DELETE") {
+        msg("\u8981\u5220\u6863\u8BF7\u5728\u6846\u91CC\u8F93\u5165 DELETE\uFF08\u5927\u5199\uFF09\u3002", "bad");
+        return;
+      }
+      deleteButton.disabled = true;
+      try {
+        const next = await ctx.invoke("reset", ["DELETE"]);
+        state = next;
+        deleteInput.value = "";
+        render();
+        void ctx.refresh();
+      } catch (error) {
+        msg(errorText(error), "bad");
+      } finally {
+        deleteButton.disabled = false;
+      }
+    };
+    deleteCard.append(ctx.ui.h("h3", void 0, "\u5220\u9664"), deleteInput, deleteButton);
+    const message = ctx.ui.h("p", "gx-msg");
+    const msg = (text2, tone) => {
+      message.textContent = text2;
+      message.className = `gx-msg gx-${tone}`;
+    };
+    shell.body.append(nowCard, newCard, importCard, exportCard, deleteCard, message);
+    function row2(ctx2, label, field3) {
+      const line = ctx2.ui.h("div", "gx-row");
+      line.append(ctx2.ui.h("span", "gx-dim", label), field3);
+      return line;
+    }
+    function render() {
+      const created = !!state && !state.locked;
+      nowLine.textContent = state === null ? emptyText(null) : created ? `${state.game?.time ?? "\u2014"} \xB7 ${state.game?.where ?? ""}` : emptyText(state);
+      newCard.hidden = created;
+      exportCard.hidden = !created;
+      deleteCard.hidden = !created;
+      importCard.hidden = created;
+      shell.update(state);
+    }
+    try {
+      state = await ctx.invoke("state", []);
+    } catch (error) {
+      msg(errorText(error), "bad");
+    }
+    render();
+    void refreshShape();
+  }
+};
+var save_default = panel6;
+
+// src/webui/panels/upgrade.ts
 var upgradePanel = {
   async mount(ctx) {
     const t = text(ctx.language);
-    const sheet = ctx.ui.sheet({ title: t.upTitle, desc: t.upDesc });
+    const shell = createShell(ctx, { title: t.upTitle, desc: t.upDesc });
+    const cards = ctx.ui.h("div", "gx-list");
+    shell.body.append(cards);
     const head = ctx.ui.rowbar();
     const energy = ctx.ui.h("span", "grow", "");
     const refresh = ctx.ui.button(t.upRefresh, {
@@ -1492,64 +1863,59 @@ var upgradePanel = {
       }
     });
     head.append(energy, refresh);
-    const cards = ctx.ui.h("div");
-    sheet.body.append(head, cards);
-    ctx.root.append(sheet.el);
+    shell.body.prepend(head);
     const render = (state) => {
       energy.textContent = state.locked ? t.upLocked : `${t.upEnergy}\uFF1A${state.energyKj.toLocaleString("en-US")} kJ`;
+      shell.updateLoose(state.locked ? {} : { energyKj: state.energyKj, capacityKj: state.capacityKj });
       cards.textContent = "";
-      for (const card of state.cards) {
-        const box = ctx.ui.h("div", "cardbox");
-        box.style.border = "1px solid var(--line, #333)";
-        box.style.borderRadius = "8px";
-        box.style.padding = "10px";
-        box.style.marginTop = "10px";
-        const status = card.status === "ready" ? t.upReady : card.status === "repairing" ? t.upRepairing : card.status === "maxed" ? t.upMaxed : t.upBroken;
-        const heading = card.level !== void 0 ? `${card.label} \xB7 lv${card.level}${card.maxLevel ? ` / lv${card.maxLevel}` : ""}` : card.label;
+      for (const card2 of state.cards) {
+        const box = ctx.ui.h("div", "gx-card");
+        const status = card2.status === "ready" ? t.upReady : card2.status === "repairing" ? t.upRepairing : card2.status === "maxed" ? t.upMaxed : t.upBroken;
+        const heading = card2.level !== void 0 ? `${card2.label} \xB7 lv${card2.level}${card2.maxLevel ? ` / lv${card2.maxLevel}` : ""}` : card2.label;
         const title = ctx.ui.h("h3", "", `${heading} \xB7 ${status}`);
         title.style.margin = "0 0 6px";
-        const flavor = ctx.ui.h("p", "muted", card.flavor);
+        const flavor = ctx.ui.h("p", "muted", card2.flavor);
         flavor.style.margin = "0 0 8px";
         box.append(title, flavor);
-        if (card.window) {
-          const now = ctx.ui.h("p", "", `${t.upWindow}\uFF1A${card.window}${card.limitFactor ? `\uFF08${t.upLimit} \xD7${card.limitFactor}\uFF09` : ""}`);
+        if (card2.window) {
+          const now = ctx.ui.h("p", "", `${t.upWindow}\uFF1A${card2.window}${card2.limitFactor ? `\uFF08${t.upLimit} \xD7${card2.limitFactor}\uFF09` : ""}`);
           now.style.margin = "0 0 6px";
           box.append(now);
         }
-        if (card.status === "repairing") {
-          const left = ctx.ui.h("p", "", `${t.upRepairing} \xB7 \u8FD8\u5269 ${card.leftHomeHours.toFixed(1)} \u6BCD\u661F\u65F6`);
+        if (card2.status === "repairing") {
+          const left = ctx.ui.h("p", "", `${t.upRepairing} \xB7 \u8FD8\u5269 ${card2.leftHomeHours.toFixed(1)} \u6BCD\u661F\u65F6`);
           box.append(left);
           cards.append(box);
           continue;
         }
-        if (card.status === "maxed") {
-          if (card.benefits) box.append(ctx.ui.h("p", "muted", card.benefits));
+        if (card2.status === "maxed") {
+          if (card2.benefits) box.append(ctx.ui.h("p", "muted", card2.benefits));
           cards.append(box);
           continue;
         }
         const need = ctx.ui.h(
           "p",
           "",
-          `${t.upNeed} ${card.costKj.toLocaleString("en-US")} kJ + ` + card.materials.map((m) => `${m.name} ${m.needKg} kg\uFF08${m.haveKg} kg\uFF09`).join("\u3001") + ` \xB7 ${card.buildHours} \u6BCD\u661F\u65F6`
+          `${t.upNeed} ${card2.costKj.toLocaleString("en-US")} kJ + ` + card2.materials.map((m) => `${m.name} ${m.needKg} kg\uFF08${m.haveKg} kg\uFF09`).join("\u3001") + ` \xB7 ${card2.buildHours} \u6BCD\u661F\u65F6`
         );
         need.style.margin = "0 0 8px";
         box.append(need);
-        if (card.benefits) {
-          const benefit = ctx.ui.h("p", "muted", `${t.upBenefit}\uFF1A${card.benefits}`);
+        if (card2.benefits) {
+          const benefit = ctx.ui.h("p", "muted", `${t.upBenefit}\uFF1A${card2.benefits}`);
           benefit.style.margin = "0 0 6px";
           box.append(benefit);
         }
-        const button = ctx.ui.button(card.status === "broken" ? t.upRepair : t.upUpgrade, {
+        const button = ctx.ui.button(card2.status === "broken" ? t.upRepair : t.upUpgrade, {
           variant: "primary",
           size: "sm",
           onClick: () => {
-            void repair(card.id, button);
+            void repair(card2.id, button);
           }
         });
-        if (!card.canRepair) {
+        if (!card2.canRepair) {
           button.disabled = true;
-          if (card.blockers.length > 0) {
-            box.append(ctx.ui.h("p", "muted", card.blockers.join("\uFF1B")));
+          if (card2.blockers.length > 0) {
+            box.append(ctx.ui.h("p", "muted", card2.blockers.join("\uFF1B")));
           }
         }
         box.append(button);
@@ -1575,15 +1941,28 @@ var upgradePanel = {
       }
     };
     await load();
+    const refreshHeader = async () => {
+      try {
+        const full = await ctx.invoke("header");
+        shell.update(full);
+      } catch {
+      }
+    };
+    void refreshHeader();
+    ctx.interval(() => {
+      void refreshHeader();
+    }, 1e4);
     ctx.interval(() => {
       void load();
     }, 5e3);
   }
 };
+
+// src/webui/panels/protocol.ts
 var protocolPanel = {
   async mount(ctx) {
     const t = text(ctx.language);
-    const sheet = ctx.ui.sheet({ title: t.protoTitle, desc: t.protoDesc });
+    const shell = createShell(ctx, { title: t.protoTitle, desc: t.protoDesc });
     const head = ctx.ui.rowbar();
     const progress = ctx.ui.h("span", "grow", "");
     const refresh = ctx.ui.button(t.protoRefresh, {
@@ -1593,8 +1972,8 @@ var protocolPanel = {
       }
     });
     head.append(progress, refresh);
-    const body = ctx.ui.h("div");
-    const habitatBox = ctx.ui.h("div");
+    const body = ctx.ui.h("div", "gx-card");
+    const habitatBox = ctx.ui.h("div", "gx-card");
     const wakeButton = ctx.ui.button(t.protoWake, {
       variant: "primary",
       onClick: () => {
@@ -1603,26 +1982,57 @@ var protocolPanel = {
     });
     wakeButton.hidden = true;
     wakeButton.style.marginTop = "10px";
-    sheet.body.append(head, body, habitatBox, wakeButton);
-    ctx.root.append(sheet.el);
-    const render = (panel2) => {
+    const recreateBox = ctx.ui.h("div");
+    recreateBox.style.marginTop = "18px";
+    recreateBox.hidden = true;
+    const recreateRow = ctx.ui.rowbar();
+    const recreateSeedInput = ctx.ui.input({ placeholder: "20261111" });
+    recreateSeedInput.type = "text";
+    recreateSeedInput.style.width = "110px";
+    const recreateMassInput = ctx.ui.input({});
+    recreateMassInput.type = "range";
+    recreateMassInput.min = "0.15";
+    recreateMassInput.max = "2";
+    recreateMassInput.step = "0.05";
+    const recreateMassLabel = ctx.ui.h("span", "mono", "1.00");
+    const recreateButton = ctx.ui.button(t.recreateGo, { variant: "primary" });
+    recreateRow.append(
+      ctx.ui.h("span", "muted", t.recreateSeed),
+      recreateSeedInput,
+      ctx.ui.h("span", "muted", t.recreateMass),
+      recreateMassInput,
+      recreateMassLabel,
+      recreateButton
+    );
+    const recreateList = ctx.ui.h("ul", "");
+    recreateBox.append(ctx.ui.h("h3", "", t.recreateTitle), ctx.ui.h("p", "muted", t.recreateDesc), recreateRow, recreateList);
+    recreateBox.classList.add("gx-card");
+    shell.body.append(head, body, habitatBox, wakeButton, recreateBox);
+    const paintMass = () => {
+      recreateMassLabel.textContent = Number(recreateMassInput.value || "1").toFixed(2);
+    };
+    recreateMassInput.addEventListener("input", paintMass);
+    recreateButton.addEventListener("click", () => {
+      void recreate(recreateButton);
+    });
+    const render = (panel7) => {
       wakeButton.hidden = false;
-      progress.textContent = `${t.protoDone} ${panel2.done} / ${panel2.total}`;
+      progress.textContent = `${t.protoDone} ${panel7.done} / ${panel7.total}`;
       body.textContent = "";
-      for (const chapter of panel2.chapters) {
+      for (const chapter of panel7.chapters) {
         const heading = ctx.ui.h("h3", "", `${chapter.title} \xB7 ${chapter.done}/${chapter.total}`);
         heading.style.margin = "10px 0 4px";
         body.append(heading);
         for (const task of chapter.tasks) {
-          const row = ctx.ui.h("div", "", `${task.done ? "\u2713" : "\u25CB"} ${task.title}${task.done ? "" : ` \xB7 ${task.progress}`}`);
-          row.style.padding = "2px 0";
-          row.style.color = task.done ? "var(--muted, #8a8a8a)" : "";
-          body.append(row);
+          const row2 = ctx.ui.h("div", "", `${task.done ? "\u2713" : "\u25CB"} ${task.title}${task.done ? "" : ` \xB7 ${task.progress}`}`);
+          row2.style.padding = "2px 0";
+          row2.style.color = task.done ? "var(--muted, #8a8a8a)" : "";
+          body.append(row2);
         }
       }
       habitatBox.textContent = "";
-      if (panel2.population) {
-        const p = panel2.population;
+      if (panel7.population) {
+        const p = panel7.population;
         habitatBox.append(
           ctx.ui.h("h3", "", t.protoPopulation),
           ctx.ui.h(
@@ -1632,8 +2042,8 @@ var protocolPanel = {
           )
         );
       }
-      if (panel2.habitat) {
-        const h = panel2.habitat;
+      if (panel7.habitat) {
+        const h = panel7.habitat;
         habitatBox.append(
           ctx.ui.h("h3", "", `${t.protoHabitat}`),
           ctx.ui.h(
@@ -1643,12 +2053,22 @@ var protocolPanel = {
           )
         );
       }
-      if (panel2.awakened) {
+      recreateBox.hidden = false;
+      if (recreateSeedInput.value === "") recreateSeedInput.value = panel7.recreate.seed;
+      if (recreateMassInput.value === "") recreateMassInput.value = String(panel7.recreate.starMass);
+      paintMass();
+      recreateButton.disabled = !panel7.recreate.ready;
+      recreateList.textContent = "";
+      if (!panel7.recreate.ready) {
+        recreateList.append(ctx.ui.h("li", "muted", t.recreateBlocked));
+        for (const blocker of panel7.recreate.blockers) recreateList.append(ctx.ui.h("li", "", blocker));
+      }
+      if (panel7.awakened) {
         wakeButton.disabled = true;
         wakeButton.textContent = t.protoAwakened;
       } else {
-        wakeButton.disabled = !panel2.ready || !panel2.habitat;
-        wakeButton.textContent = panel2.ready ? t.protoWake : `${t.protoWake}\uFF08${t.protoDone} ${panel2.done}/${panel2.total}\uFF09`;
+        wakeButton.disabled = !panel7.ready || !panel7.habitat;
+        wakeButton.textContent = panel7.ready ? t.protoWake : `${t.protoWake}\uFF08${t.protoDone} ${panel7.done}/${panel7.total}\uFF09`;
       }
     };
     const load = async () => {
@@ -1656,6 +2076,7 @@ var protocolPanel = {
         render(await ctx.invoke("state"));
       } catch (error) {
         wakeButton.hidden = true;
+        recreateBox.hidden = true;
         progress.textContent = "";
         body.textContent = "";
         habitatBox.textContent = "";
@@ -1669,9 +2090,36 @@ var protocolPanel = {
     const wake = async (button) => {
       button.disabled = true;
       try {
-        const panel2 = await ctx.invoke("wake", []);
-        render(panel2);
+        const panel7 = await ctx.invoke("wake", []);
+        render(panel7);
         ctx.ui.toast(t.protoAwakened, "ok");
+        void ctx.refresh();
+      } catch (error) {
+        ctx.ui.toast(errorText(error), "bad");
+        button.disabled = false;
+      }
+    };
+    const recreate = async (button) => {
+      button.disabled = true;
+      try {
+        const result = await ctx.invoke("recreate", [
+          recreateSeedInput.value,
+          Number(recreateMassInput.value)
+        ]);
+        ctx.ui.toast(t.recreateDone, "ok");
+        progress.textContent = result.text;
+        await load();
+        const refreshHeader = async () => {
+          try {
+            const full = await ctx.invoke("header");
+            shell.update(full);
+          } catch {
+          }
+        };
+        void refreshHeader();
+        ctx.interval(() => {
+          void refreshHeader();
+        }, 1e4);
         void ctx.refresh();
       } catch (error) {
         ctx.ui.toast(errorText(error), "bad");
@@ -1684,79 +2132,128 @@ var protocolPanel = {
     }, 5e3);
   }
 };
-var guidePanel = {
+
+// src/webui/panels/shop.ts
+var shopPanel = {
   mount(ctx) {
     const t = text(ctx.language);
-    const sheet = ctx.ui.sheet({ title: t.guideTitle, desc: t.guideDesc });
-    const searchRow = ctx.ui.rowbar();
-    const searchInput = ctx.ui.input({ placeholder: t.guideSearchHint });
-    searchInput.type = "text";
-    const searchButton = ctx.ui.button(t.guideSearch, { size: "sm" });
-    searchRow.append(searchInput, searchButton);
-    const chips = ctx.ui.h("div", "rows");
-    const article = ctx.ui.h("div", "cols");
-    const hint = ctx.ui.h("p", "muted", t.guideEmpty);
-    chips.append(ctx.ui.h("span", "muted", t.guidePick));
-    article.append(hint);
-    sheet.body.append(searchRow, chips, article);
-    ctx.root.append(sheet.el);
-    let current = null;
-    let topics = [];
-    const paintChips = () => {
-      for (const chip of Array.from(chips.querySelectorAll("button"))) chip.remove();
-      for (const topic of topics) {
-        const button = ctx.ui.button(topic.title, { size: "sm", variant: topic.id === current ? "primary" : void 0 });
-        button.addEventListener("click", () => {
-          void open(topic.id);
+    const shell = createShell(ctx, { title: t.shopTitle, desc: t.shopDesc });
+    const head = ctx.ui.rowbar();
+    const statusLine = ctx.ui.msgline();
+    const wallet = ctx.ui.h("span", "mono", "");
+    const refreshButton = ctx.ui.button("\u5237\u65B0", { size: "sm" });
+    head.append(refreshButton, statusLine, wallet);
+    const sellBox = ctx.ui.h("div", "gx-card");
+    const buyBox = ctx.ui.h("div", "gx-card");
+    const orderBox = ctx.ui.h("div", "gx-card");
+    shell.body.append(head, sellBox, buyBox, orderBox);
+    const fmt = (value) => value.toLocaleString("en-US");
+    async function act(method, args) {
+      try {
+        const result = await ctx.invoke(method, args);
+        if (result?.text) ctx.ui.toast(result.text, "ok");
+        if (result?.state) render(result.state);
+        else await load();
+        void ctx.refresh();
+      } catch (error) {
+        ctx.ui.toast(error instanceof Error ? error.message : String(error), "bad");
+      }
+    }
+    function buyArgs(row2) {
+      if (row2.id === "random_seed" || row2.id === "premium_seed") {
+        return { kind: row2.id, ...row2.species ? { species: row2.species } : {} };
+      }
+      if (row2.id === "fertilizer") return { kind: "fertilizer", kg: 5 };
+      if (row2.id === "cylinder") return { kind: "cylinder", count: 10 };
+      return { kind: row2.id };
+    }
+    function render(panel7) {
+      const open = panel7.open;
+      statusLine.textContent = open ? t.shopOpenNow : t.shopClosedNow;
+      shell.updateLoose({ energyKj: panel7.energyKj, capacityKj: panel7.capacityKj, credits: panel7.credits, tungsten: panel7.tungsten });
+      wallet.textContent = [
+        t.shopCredits + " " + fmt(panel7.credits),
+        t.shopEnergy + " " + fmt(panel7.energyKj) + " kJ",
+        t.shopTungsten + " " + fmt(panel7.tungsten) + " kg",
+        t.shopWindowLabel + " " + panel7.window,
+        open ? panel7.closedNote ?? "" : t.shopNextOpen(panel7.nextOpenHours)
+      ].filter(Boolean).join(" \xB7 ");
+      sellBox.replaceChildren(ctx.ui.h("h4", "", t.shopSellHeader));
+      for (const row2 of panel7.sellables) {
+        const line = ctx.ui.h("div");
+        line.style.display = "flex";
+        line.style.gap = "8px";
+        line.style.alignItems = "center";
+        line.append(
+          ctx.ui.h("span", "mono", row2.name + " \xB7 " + row2.priceLabel + " \xB7 " + row2.limitLabel),
+          ctx.ui.h("span", "muted", t.shopHeld(fmt(row2.held ?? 0)))
+        );
+        const sell = ctx.ui.button(t.shopSell(row2.name, "1"), {
+          size: "sm",
+          onClick: () => void act("sell", [{ id: row2.id, amount: 1 }])
         });
-        chips.append(button);
+        sell.disabled = !open || (row2.held ?? 0) <= 0;
+        line.append(sell);
+        sellBox.append(line);
       }
-    };
-    const open = async (id) => {
-      current = id;
-      paintChips();
+      buyBox.replaceChildren(ctx.ui.h("h4", "", t.shopBuyHeader));
+      for (const row2 of panel7.buyables) {
+        const line = ctx.ui.h("div");
+        line.style.display = "flex";
+        line.style.gap = "8px";
+        line.style.alignItems = "center";
+        line.append(ctx.ui.h("span", "mono", row2.name + " \xB7 " + row2.priceLabel + " \xB7 " + row2.limitLabel));
+        if (row2.note) line.append(ctx.ui.h("span", "muted", row2.note));
+        const buy = ctx.ui.button(t.shopBuy(row2.name), {
+          size: "sm",
+          onClick: () => void act("buy", [buyArgs(row2)])
+        });
+        buy.disabled = !open;
+        line.append(buy);
+        buyBox.append(line);
+      }
+      orderBox.replaceChildren(ctx.ui.h("h4", "", t.shopOrdersHeader));
+      if (panel7.orders.length === 0) {
+        orderBox.append(ctx.ui.h("p", "muted", t.shopNoOrders));
+      }
+      for (const order of panel7.orders) {
+        const line = ctx.ui.h("div");
+        line.style.display = "flex";
+        line.style.gap = "8px";
+        line.style.alignItems = "center";
+        line.append(ctx.ui.h("span", "mono", order.label));
+        if (order.note) line.append(ctx.ui.h("span", "muted", order.note));
+        const deliver = ctx.ui.button(t.shopDeliver, { size: "sm", onClick: () => void act("order", [{ id: order.id }]) });
+        deliver.disabled = !open;
+        line.append(deliver);
+        orderBox.append(line);
+      }
+    }
+    async function load() {
       try {
-        const payload = await ctx.invoke("read", [id]);
-        article.replaceChildren(renderMarkdown(document, payload.text));
+        const panel7 = await ctx.invoke("state", []);
+        render(panel7);
       } catch (error) {
-        article.replaceChildren(ctx.ui.h("p", "muted", errorText(error)));
+        statusLine.textContent = error instanceof Error ? error.message : String(error);
       }
-    };
-    const search = async () => {
-      const query = searchInput.value.trim();
-      if (!query) return;
-      const busy = ctx.ui.disable(searchButton);
-      try {
-        const payload = await ctx.invoke("search", [query]);
-        const card = renderMarkdown(document, payload.text);
-        card.classList.add("mono");
-        article.replaceChildren(card);
-      } catch (error) {
-        article.replaceChildren(ctx.ui.h("p", "muted", errorText(error)));
-      } finally {
-        busy.dispose();
-      }
-    };
-    searchButton.addEventListener("click", () => void search());
-    searchInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") void search();
-    });
-    const load = async () => {
-      try {
-        const payload = await ctx.invoke("topics");
-        topics = payload.topics ?? [];
-        paintChips();
-        if (topics.length === 0) return;
-        if (!current || !topics.some((topic) => topic.id === current)) {
-          await open(topics[0].id);
-        }
-      } catch (error) {
-        hint.textContent = errorText(error);
-      }
-    };
+    }
+    refreshButton.addEventListener("click", () => void load());
     void load();
+    const refreshHeader = async () => {
+      try {
+        const full = await ctx.invoke("header");
+        shell.update(full);
+      } catch {
+      }
+    };
+    void refreshHeader();
+    ctx.interval(() => {
+      void refreshHeader();
+    }, 1e4);
   }
 };
+
+// src/webui/markdown.ts
 function renderMarkdown(owner, text2) {
   const root = owner.createElement("div");
   root.className = "rows";
@@ -1826,15 +2323,109 @@ function inlineNodes(owner, text2) {
   if (last < text2.length) nodes.push(owner.createTextNode(text2.slice(last)));
   return nodes;
 }
-var bundle = { panels: { system: panel, upgrade: upgradePanel, protocol: protocolPanel, guide: guidePanel } };
-function errorText(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-function normalizeSeedInput(raw) {
-  const text2 = raw.trim();
-  if (!text2) return 20261111;
-  return /^\d{1,15}$/.test(text2) ? Number(text2) : text2;
-}
+
+// src/webui/panels/guide.ts
+var guidePanel = {
+  mount(ctx) {
+    const t = text(ctx.language);
+    const shell = createShell(ctx, { title: t.guideTitle, desc: t.guideDesc });
+    const searchRow = ctx.ui.rowbar();
+    const searchInput = ctx.ui.input({ placeholder: t.guideSearchHint });
+    searchInput.type = "text";
+    const searchButton = ctx.ui.button(t.guideSearch, { size: "sm" });
+    const toolsButton = ctx.ui.button(t.guideTools, { size: "sm" });
+    searchRow.append(searchInput, searchButton, toolsButton);
+    const chips = ctx.ui.h("div", "gx-card");
+    const article = ctx.ui.h("div", "gx-card");
+    const hint = ctx.ui.h("p", "muted", t.guideEmpty);
+    chips.append(ctx.ui.h("span", "muted", t.guidePick));
+    article.append(hint);
+    shell.body.append(searchRow, chips, article);
+    let current = null;
+    let topics = [];
+    const paintChips = () => {
+      for (const chip of Array.from(chips.querySelectorAll("button"))) chip.remove();
+      for (const topic of topics) {
+        const button = ctx.ui.button(topic.title, { size: "sm", variant: topic.id === current ? "primary" : void 0 });
+        button.addEventListener("click", () => {
+          void open(topic.id);
+        });
+        chips.append(button);
+      }
+    };
+    const open = async (id) => {
+      current = id;
+      paintChips();
+      try {
+        const payload = await ctx.invoke("read", [id]);
+        article.replaceChildren(renderMarkdown(document, payload.text));
+      } catch (error) {
+        article.replaceChildren(ctx.ui.h("p", "muted", errorText(error)));
+      }
+    };
+    const search = async () => {
+      const query = searchInput.value.trim();
+      if (!query) return;
+      const busy = ctx.ui.disable(searchButton);
+      try {
+        const payload = await ctx.invoke("search", [query]);
+        const card2 = renderMarkdown(document, payload.text);
+        card2.classList.add("mono");
+        article.replaceChildren(card2);
+      } catch (error) {
+        article.replaceChildren(ctx.ui.h("p", "muted", errorText(error)));
+      } finally {
+        busy.dispose();
+      }
+    };
+    searchButton.addEventListener("click", () => void search());
+    toolsButton.addEventListener("click", () => {
+      void (async () => {
+        try {
+          const payload = await ctx.invoke("tools", []);
+          const card2 = renderMarkdown(document, payload.text);
+          card2.classList.add("mono");
+          article.replaceChildren(card2);
+        } catch (error) {
+          article.replaceChildren(ctx.ui.h("p", "muted", errorText(error)));
+        }
+      })();
+    });
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") void search();
+    });
+    const load = async () => {
+      try {
+        const payload = await ctx.invoke("topics");
+        topics = payload.topics ?? [];
+        paintChips();
+        if (topics.length === 0) return;
+        if (!current || !topics.some((topic) => topic.id === current)) {
+          await open(topics[0].id);
+        }
+      } catch (error) {
+        hint.textContent = errorText(error);
+      }
+    };
+    void load();
+    const refreshHeader = async () => {
+      try {
+        const full = await ctx.invoke("header");
+        shell.update(full);
+      } catch {
+      }
+    };
+    void refreshHeader();
+    ctx.interval(() => {
+      void refreshHeader();
+    }, 1e4);
+  }
+};
+
+// src/webui/client.ts
+var bundle = {
+  panels: { overview: overview_default, surface: surface_default, farm: farm_default, industry: industry_default, life: life_default, upgrade: upgradePanel, protocol: protocolPanel, shop: shopPanel, guide: guidePanel, save: save_default }
+};
 var client_default = bundle;
 export {
   client_default as default

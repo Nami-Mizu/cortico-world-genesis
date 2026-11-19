@@ -40,4 +40,12 @@ ${entries.join('\n')}
 `;
 
 writeFileSync(join(root, 'src', 'guide-content.ts'), out, 'utf8');
-console.log(`wrote src/guide-content.ts (${order.length - (order.length - entries.length)} chapters)`);
+console.log(`wrote src/guide-content.ts (${entries.length} chapters)`);
+
+// 工具表也一起编，理由同上：打包后 .md 不在旁边。
+const tools = readFileSync(join(root, 'src', 'TOOLS.md'), 'utf8').trimEnd();
+const toolsOut = `// 由 scripts/build-guide-content.mjs 从 src/TOOLS.md 生成，别手改。
+export const TOOLS_SNAPSHOT: string = ${JSON.stringify(`${tools}\n`)};
+`;
+writeFileSync(join(root, 'src', 'tools-content.ts'), toolsOut, 'utf8');
+console.log(`wrote src/tools-content.ts (${tools.split('\n').length} lines)`);

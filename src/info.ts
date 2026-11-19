@@ -257,6 +257,19 @@ export const INFO_ENTRIES: InfoEntry[] = (() => {
     pitfalls?: string;
   }> = [
     {
+      id: 'pod',
+      label: '着陆舱（pod）',
+      aliases: ['着陆舱', '舱', 'pod', '补给舱', '着陆器'],
+      facts: [
+        '容量：干粮 40 kg、饮用水 160 L、氧气 24 kg',
+        '睡着的人先吃它：每人每母星时 0.005 kg 粮 / 0.02 L 水 / 0.007 kg 氧',
+        '三样都见底也不会死人，只是继续睡——叫醒之后才吃居所内仓',
+      ],
+      about: '开局那艘着陆器剩下的补给舱。它是全船最靠得住的一口粮，也是唯一没有建筑图纸的容器。',
+      usage: '补舱：genesis_store { action: "deposit", building: "pod", resource: "biomass", kg: 10 }（水用 water_drink、氧用 oxygen）；取出来用 action: "withdraw"；先看余量用 action: "list"。',
+      pitfalls: '只认干粮、饮用水、氧气三样；舱空之后不会自动去仓库拿，得你自己搬。',
+    },
+    {
       id: 'sail',
       label: '太阳能帆',
       aliases: ['帆', '太阳能', '发电', 'solar'],

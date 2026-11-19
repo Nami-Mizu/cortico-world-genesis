@@ -24,6 +24,8 @@ export interface Site {
   foundedHomeHours: number;
   /** 四维养分库存；收获会扣，草木灰/堆肥会补。 */
   nutrients: NutrientStock;
+  /** 冰盖站点自带冰窖里的水（L，0…100）：融雪攒、灌溉喝，同时给作物加湿润度。 */
+  waterL?: number;
 }
 
 /**
@@ -177,7 +179,7 @@ export function climateAt(
 export function siteRefusal(surface: TerrestrialSurface, latDeg: number, lonDeg: number, existing: Site[]): string | null {
   const sample = sampleCell(surface, latDeg, lonDeg);
   if (!sample.land) return '这里是水面（海洋），站点要建在陆地上。';
-  if (sample.biome === 1) return '这里是永久冰盖，扎不了营。';
+  // 冰盖可以建站（2.1.7）：自带 100 L 冰窖、下降风发电，苦但能活。
   const sameCell = existing.filter((site) => site.cellI === sample.cellI && site.cellJ === sample.cellJ);
   if (sameCell.length >= MAX_SITES_PER_CELL) {
     return `这一格已经有 ${MAX_SITES_PER_CELL} 个站点了（上限 ${MAX_SITES_PER_CELL} 个）。`;

@@ -13,6 +13,11 @@ function pct(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+/** 健康本身就是百分数（0–100），只补一位小数：99.7%，不要乘一百。 */
+function healthPct(value: number): string {
+  return `${value.toFixed(1)}%`;
+}
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -75,7 +80,9 @@ export function inspectPlantText(plant: PlantRecord, climate: ClimateSample, sit
   const need = NUTRIENT_NEEDS[plant.species];
   const lines: string[] = [];
   lines.push(`${spec.name}（${plant.id}）· ${siteLabel}`);
-  lines.push(`  阶段：${plant.stage} · 进度 ${pct(plant.progress)} · 健康 ${pct(plant.health)}${plant.stress ? ' · 应激' : ''}`);
+  lines.push(
+    `  阶段：${plant.stage} · 进度 ${pct(plant.progress)} · 健康 ${healthPct(plant.health)}${plant.stress ? ' · 应激' : ''}${plant.starved ? ' · 缺肥（停长）' : ''}${plant.bred ? ' · 已留过种' : ''}`,
+  );
   lines.push(
     `  基因：最适 ${plant.genes.tempOptC}℃ · 需水 ${plant.genes.waterNeed} · 长速 ×${plant.genes.growthRate} · 产量 ×${plant.genes.yield} · 耐人工气候 ${plant.genes.climateTolerance ?? 0}`,
   );
@@ -95,13 +102,17 @@ export function inspectPlantText(plant: PlantRecord, climate: ClimateSample, sit
   lines.push(`  生长：${growFactorText(plant, climate)}`);
   const hours = hoursLeft(plant, climate);
   if (p.total <= 0) {
-    lines.push('  现在完全不长：看上面哪一项是 ×0，先把它补上（温度/湿度/养分）。');
+    lines.push(
+      p.nutrient <= 0
+        ? '  现在不长是因为缺肥：它不会死，也不会应激，只是这一茬停在原地——补肥或换块地。'
+        : '  现在完全不长：看上面哪一项是 ×0，先把它补上（温度/湿度）。',
+    );
   } else if (hours !== null) {
     lines.push(hours <= 0 ? '  可以收了。' : `  按这个速度还要 ${hours} 母星时。`);
   }
   if (spec.model === 'individual') {
-    const yieldKg = spec.yieldKg * plant.genes.yield * (0.7 + 0.3 * climate.fertility);
-    lines.push(`  预计收成：${round2(yieldKg)} kg ${spec.resource}（按当前肥力）`);
+    const yieldKg = spec.yieldKg * plant.genes.yield * (0.7 + 0.3 * climate.fertility) * (0.5 + 0.5 * Math.min(1, p.nutrient));
+    lines.push(`  预计收成：${round2(yieldKg)} kg ${spec.resource}（按当前肥力与养分）`);
   }
   return lines.join('\n');
 }

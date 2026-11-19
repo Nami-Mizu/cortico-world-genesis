@@ -202,5 +202,9 @@ export {
   type AtmosphereReading,
 } from './life.ts';
 export { HABITAT_COMFORT_C, HABITAT_CLIMATE_PULL_C, habitatInteriorC, habitatComfortIssue } from './game.ts';
+export { structureInteriorC, interiorComfortable, STAFF_COMFORT_C, LODGE_COMFORT_C, S2_ENGINE_MAX, S2_COMPUTE_PER_HOUR, S2_KJ_PER_COMPUTE } from './game.ts';
 export { ordersForDay, GENE_LABELS, type Order } from './orders.ts';
 export { PROTOCOL_TASKS, CHAPTER_TITLES, protocolStatus, protocolDone, protocolComplete } from './protocol.ts';
+
+export { ProfileStore, PROFILE_SCHEMA, FUEL_RESOURCE, RECREATE_ENERGY_KJ, RECREATE_FUEL_KG, RECREATE_SAMPLES, consumeRecreate, exportProfile, recreateBlockers } from './profile.ts';
+export type { Profile, ProfileStoreOptions } from './profile.ts';
